@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JLJGAMINGHOUSE Launcher</title>
+    <link rel="icon" href="assets/images/favicon.ico">
+    <link rel="apple-touch-icon" href="assets/images/apple-touch-icon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="assets/css/style.css">
+<base target="_blank">
+</head>
+<body>
+    <div class="noise"></div>
+    <div class="title-bar">
+        <div class="title-bar-left">
+            <img class="logo-mark" src="assets/images/android-chrome-192x192.png" alt="JLJGAMINGHOUSE">
+            <span class="brand-name">JLJGAMINGHOUSE</span>
+        </div>
+        <div class="window-controls">
+            <button class="win-btn btn-minimize" id="windowMinimizeButton" title="Minimize"></button>
+            <button class="win-btn btn-maximize" id="windowMaximizeButton" title="Maximize"></button>
+            <button class="win-btn btn-close" id="windowCloseButton" title="Close"></button>
+        </div>
+    </div>
+
+    <div class="app-container">
+        <aside class="sidebar">
+            <div class="nav-section">
+                <div class="nav-header">Library</div>
+                <div class="nav-item active" onclick="switchTab(this, 'library')">
+                    <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+                    Game Library
+                </div>
+            </div>
+            <div class="nav-section">
+                <div class="nav-header">Social</div>
+                <div class="nav-item" onclick="openExternal('https://facebook.com')">
+                    <svg class="nav-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                    Facebook
+                </div>
+                <div class="nav-item" onclick="openExternal('https://youtube.com')">
+                    <svg class="nav-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+                    YouTube
+                </div>
+                <div class="nav-item" onclick="openExternal('https://tiktok.com')">
+                    <svg class="nav-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/></svg>
+                    TikTok
+                </div>
+            </div>
+            <div class="nav-section">
+                <div class="nav-header">Tools</div>
+                <div class="nav-item" onclick="openExternal('https://google.com')">
+                    <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg>
+                    Browser
+                </div>
+            </div>
+            <div class="nav-section">
+                <div class="nav-header">Owner</div>
+                <div class="nav-item" onclick="openLoginModal()">
+                    <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                    <span id="loginText">Owner Login</span>
+                    <span class="owner-badge" id="ownerBadge" style="display: none;">OWNER</span>
+                </div>
+                <div class="nav-item" id="addGameNav" style="display: none;" onclick="openAddGameModal()">
+                    <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+                    Add Game
+                </div>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <div class="page-header animate-in">
+                <h1 class="page-title" id="pageTitle">Game Library</h1>
+                <div class="header-actions">
+                    <div class="search-box">
+                        <svg class="search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                        <input type="text" placeholder="Search games..." id="searchInput" onkeyup="searchGames()">
+                    </div>
+                    <div class="rows-filter">
+                        <span class="rows-label">Rows</span>
+                        <select class="rows-select" id="rowsSelect" onchange="changeRows(this.value)">
+                            <option value="3">3</option>
+                            <option value="2">2</option>
+                            <option value="4">4</option>
+                            <option value="5" selected>5</option>
+                            <option value="6">6</option>
+                        </select>
+                    </div>
+                     <button class="btn" onclick="checkAllUpdates()" title="Check for updates" style="padding: 10px 14px;">
+                        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                            <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                        </svg>
+                        Check Updates
+                    </button>
+                </div>
+            </div>
+
+            <div class="tab-filters animate-in delay-1" id="tabFilters">
+                <button class="tab-btn active" onclick="filterGames('all', this)">All</button>
+                <button class="tab-btn" onclick="filterGames('installed', this)">Installed</button>
+                <button class="tab-btn" onclick="filterGames('updates', this)">Updates</button>
+                <button class="tab-btn" onclick="filterGames('favorites', this)">Favorites</button>
+                <button class="tab-btn" onclick="filterGames('recent', this)">Recently Played</button>
+            </div>
+
+            <div class="section-header animate-in delay-2">
+                <h3 class="section-title" id="gamesSectionTitle">All Games</h3>
+            </div>
+
+            <div class="games-grid animate-in delay-2 rows-5" id="gamesGrid"></div>
+        </main>
+    </div>
+
+    <div class="playing-indicator" id="playingIndicator">
+        <div class="playing-pulse"></div>
+        <div class="playing-info">
+            <div class="playing-game" id="playingGameName">Game Name</div>
+            <div class="playing-time" id="playingTime">0h 0m played</div>
+        </div>
+        <button class="stop-btn" onclick="stopPlaying()">Stop</button>
+    </div>
+
+    <div class="modal-overlay" id="loginModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Owner Login</h3>
+                <button class="modal-close" onclick="closeLoginModal()">✕</button>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Username</label>
+                <input type="text" class="form-input" placeholder="Enter username..." id="loginUsername">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Password</label>
+                <input type="password" class="form-input" placeholder="Enter password..." id="loginPassword">
+            </div>
+            <button class="btn btn-play btn-full" id="loginButton">
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                Login
+            </button>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="addGameModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Add New Game</h3>
+                <button class="modal-close" onclick="closeAddGameModal()">✕</button>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Game Title</label>
+                <input type="text" class="form-input" placeholder="Enter game name..." id="gameTitle">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Genre</label>
+                <select class="form-select" id="gameGenre">
+                    <option value="" disabled selected>Select genre...</option>
+                    <option value="Action">Action</option>
+                    <option value="Adventure">Adventure</option>
+                    <option value="Battle Royale">Battle Royale</option>
+                    <option value="Fighting">Fighting</option>
+                    <option value="FPS">FPS</option>
+                    <option value="Horror">Horror</option>
+                    <option value="MMORPG">MMORPG</option>
+                    <option value="MOBA">MOBA</option>
+                    <option value="Platformer">Platformer</option>
+                    <option value="Puzzle">Puzzle</option>
+                    <option value="Racing">Racing</option>
+                    <option value="RPG">RPG</option>
+                    <option value="Sandbox">Sandbox</option>
+                    <option value="Shooter">Shooter</option>
+                    <option value="Simulation">Simulation</option>
+                    <option value="Sports">Sports</option>
+                    <option value="Stealth">Stealth</option>
+                    <option value="Strategy">Strategy</option>
+                    <option value="Survival">Survival</option>
+                    <option value="Visual Novel">Visual Novel</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Game Executable Path</label>
+                <input type="text" class="form-input" placeholder="C:\Games\GameName\game.exe" id="gameExeManual">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Cover Image URL</label>
+                <input type="text" class="form-input" placeholder="https://..." id="gameCover">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Launch Method</label>
+                <select class="form-select" id="gameLaunchMethod">
+                    <option value="direct" selected>Direct EXE</option>
+                    <option value="roblox">Roblox (Auto-detect version)</option>
+                    <option value="steam">Steam (App ID)</option>
+                    <option value="epic">Epic Games</option>
+                    <option value="auto_detect">Auto-Detect</option>
+                </select>
+            </div>
+
+            <div class="form-group" id="appIdGroup" style="display: none;">
+                <label class="form-label">Steam/Epic App ID</label>
+                <input type="text" class="form-input" placeholder="e.g., 730 for CS2" id="gameAppId">
+            </div>
+            <button class="btn btn-play btn-full" id="addGameButton">
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+                Add Game
+            </button>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="deleteModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Delete Game</h3>
+                <button class="modal-close" onclick="closeDeleteModal()">✕</button>
+            </div>
+            <p style="color: var(--text-secondary); font-size: 14px; margin-bottom: 20px;">Are you sure you want to delete <strong id="deleteGameName" style="color: white;"></strong>? This action cannot be undone.</p>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn btn-danger btn-full" id="confirmDeleteGameButton" style="flex: 1;">Delete</button>
+                <button class="btn btn-full" id="cancelDeleteGameButton" style="flex: 1; background: var(--bg-hover);">Cancel</button>
+            </div>
+        </div>
+    </div>
+    
+
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script src="assets/js/app.js"></script>
+</body>
+</html>
