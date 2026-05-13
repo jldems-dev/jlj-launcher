@@ -15,6 +15,7 @@ function normalizeGame(game) {
     if (game.version === undefined) game.version = '1.0.0';
     if (game.latestVersion === undefined) game.latestVersion = '1.0.0';
     if (game.launchMethod === undefined) game.launchMethod = 'direct';
+    if (game.HostSetup === undefined) game.HostSetup = 'no';
     if (game.appId === undefined) game.appId = '';
     if (game.detectedExePath === undefined) game.detectedExePath = '';
 }
@@ -123,6 +124,7 @@ function createGameStore(app, rootDir = process.cwd()) {
             exePath: game.exePath || '',
             detectedExePath: game.detectedExePath || '',
             launchMethod: game.launchMethod || 'direct',
+            HostSetup: game.HostSetup || 'no',
             appId: game.appId || '',
             version: game.version || '1.0.0',
             latestVersion: game.latestVersion || '1.0.0'

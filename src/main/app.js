@@ -5,7 +5,8 @@ const { createGameStore } = require('./storage/gameStore');
 const detectionService = require('./services/gameDetectionService');
 const processService = require('./services/processService');
 const { createGameTrackingService } = require('./services/gameTrackingService');
-const { createGameLaunchService } = require('./services/gameLaunchService');
+const { createGameLaunchService } = require('./services/gameLaunchService'); 
+const { createHostService } = require('./services/hostService'); // ADD THIS
 const { registerIpcHandlers } = require('./ipc/registerIpcHandlers');
 
 function bootstrap(rootDir = path.join(__dirname, '..', '..')) {
@@ -25,6 +26,7 @@ function bootstrap(rootDir = path.join(__dirname, '..', '..')) {
         processService,
         trackingService
     });
+    const hostService = createHostService(); // ADD THIS
 
     registerIpcHandlers({
         ipcMain,
@@ -32,6 +34,7 @@ function bootstrap(rootDir = path.join(__dirname, '..', '..')) {
         trackingService,
         launchService,
         detectionService,
+        hostService, // ADD THIS
         getMainWindow
     });
 

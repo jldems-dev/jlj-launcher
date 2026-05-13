@@ -1,0 +1,232 @@
+{
+  "maps": [
+    {
+      "value": "c1m1_hotel",
+      "label": "Dead Center - Hotel"
+    },
+    {
+      "value": "c1m2_streets",
+      "label": "Dead Center - Streets"
+    },
+    {
+      "value": "c1m3_mall",
+      "label": "Dead Center - Mall"
+    },
+    {
+      "value": "c1m4_atrium",
+      "label": "Dead Center - Atrium"
+    },
+    {
+      "value": "c2m1_highway",
+      "label": "Dark Carnival - Highway"
+    },
+    {
+      "value": "c2m2_fairgrounds",
+      "label": "Dark Carnival - Fairgrounds"
+    },
+    {
+      "value": "c2m3_coaster",
+      "label": "Dark Carnival - Coaster"
+    },
+    {
+      "value": "c2m4_barns",
+      "label": "Dark Carnival - Barns"
+    },
+    {
+      "value": "c2m5_concert",
+      "label": "Dark Carnival - Concert"
+    },
+    {
+      "value": "c3m1_plankcountry",
+      "label": "Swamp Fever - Plank Country"
+    },
+    {
+      "value": "c3m2_swamp",
+      "label": "Swamp Fever - Swamp"
+    },
+    {
+      "value": "c3m3_shantytown",
+      "label": "Swamp Fever - Shantytown"
+    },
+    {
+      "value": "c3m4_plantation",
+      "label": "Swamp Fever - Plantation"
+    },
+    {
+      "value": "c4m1_milltown_a",
+      "label": "Hard Rain - Milltown"
+    },
+    {
+      "value": "c4m2_sugarmill_a",
+      "label": "Hard Rain - Sugarmill"
+    },
+    {
+      "value": "c4m3_sugarmill_b",
+      "label": "Hard Rain - Sugarmill B"
+    },
+    {
+      "value": "c4m4_milltown_b",
+      "label": "Hard Rain - Milltown B"
+    },
+    {
+      "value": "c4m5_milltown_escape",
+      "label": "Hard Rain - Milltown Escape"
+    },
+    {
+      "value": "c5m1_waterfront",
+      "label": "The Parish - Waterfront"
+    },
+    {
+      "value": "c5m2_park",
+      "label": "The Parish - Park"
+    },
+    {
+      "value": "c5m3_cemetery",
+      "label": "The Parish - Cemetery"
+    },
+    {
+      "value": "c5m4_quarter",
+      "label": "The Parish - Quarter"
+    },
+    {
+      "value": "c5m5_bridge",
+      "label": "The Parish - Bridge"
+    },
+    {
+      "value": "c6m1_riverbank",
+      "label": "The Passing - Riverbank"
+    },
+    {
+      "value": "c6m2_bedlam",
+      "label": "The Passing - Bedlam"
+    },
+    {
+      "value": "c6m3_port",
+      "label": "The Passing - Port"
+    },
+    {
+      "value": "c7m1_docks",
+      "label": "The Sacrifice - Docks"
+    },
+    {
+      "value": "c7m2_barge",
+      "label": "The Sacrifice - Barge"
+    },
+    {
+      "value": "c7m3_port",
+      "label": "The Sacrifice - Port"
+    },
+    {
+      "value": "c8m1_apartment",
+      "label": "No Mercy - Apartment"
+    },
+    {
+      "value": "c8m2_subway",
+      "label": "No Mercy - Subway"
+    },
+    {
+      "value": "c8m3_sewers",
+      "label": "No Mercy - Sewers"
+    },
+    {
+      "value": "c8m4_interior",
+      "label": "No Mercy - Interior"
+    },
+    {
+      "value": "c8m5_rooftop",
+      "label": "No Mercy - Rooftop"
+    },
+    {
+      "value": "c9m1_alleys",
+      "label": "Crash Course - Alleys"
+    },
+    {
+      "value": "c9m2_lots",
+      "label": "Crash Course - Lots"
+    },
+    {
+      "value": "c10m1_caves",
+      "label": "Death Toll - Caves"
+    },
+    {
+      "value": "c10m2_drainage",
+      "label": "Death Toll - Drainage"
+    },
+    {
+      "value": "c10m3_ranchhouse",
+      "label": "Death Toll - Ranchhouse"
+    },
+    {
+      "value": "c10m4_mainstreet",
+      "label": "Death Toll - Mainstreet"
+    },
+    {
+      "value": "c10m5_houseboat",
+      "label": "Death Toll - Houseboat"
+    },
+    {
+      "value": "c11m1_greenhouse",
+      "label": "Dead Air - Greenhouse"
+    },
+    {
+      "value": "c11m2_offices",
+      "label": "Dead Air - Offices"
+    },
+    {
+      "value": "c11m3_garage",
+      "label": "Dead Air - Garage"
+    },
+    {
+      "value": "c11m4_terminal",
+      "label": "Dead Air - Terminal"
+    },
+    {
+      "value": "c11m5_runway",
+      "label": "Dead Air - Runway"
+    },
+    {
+      "value": "c12m1_hilltop",
+      "label": "Blood Harvest - Hilltop"
+    },
+    {
+      "value": "c12m2_traintunnel",
+      "label": "Blood Harvest - Train Tunnel"
+    },
+    {
+      "value": "c12m3_bridge",
+      "label": "Blood Harvest - Bridge"
+    },
+    {
+      "value": "c12m4_barn",
+      "label": "Blood Harvest - Barn"
+    },
+    {
+      "value": "c12m5_cornfield",
+      "label": "Blood Harvest - Cornfield"
+    },
+    {
+      "value": "c13m1_alpinecreek",
+      "label": "Cold Stream - Alpine Creek"
+    },
+    {
+      "value": "c13m2_southpinestream",
+      "label": "Cold Stream - South Pine Stream"
+    },
+    {
+      "value": "c13m3_memorialbridge",
+      "label": "Cold Stream - Memorial Bridge"
+    },
+    {
+      "value": "c13m4_cutthroatcreek",
+      "label": "Cold Stream - Cutthroat Creek"
+    },
+    {
+      "value": "c14m1_junkyard",
+      "label": "The Last Stand - Junkyard"
+    },
+    {
+      "value": "c14m2_lighthouse",
+      "label": "The Last Stand - Lighthouse"
+    }
+  ]
+}

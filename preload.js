@@ -25,5 +25,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     changePassword: (currentPass, newPass) => ipcRenderer.invoke('db-change-password', currentPass, newPass),
     getStorageInfo: () => ipcRenderer.invoke('db-get-storage-info'),
 
-    openExternal: (url) => ipcRenderer.send('open-external', url)
+    openExternal: (url) => ipcRenderer.send('open-external', url),
+    
+    createRoom: (data) => ipcRenderer.invoke('create-room', data),
+    getRooms: () => ipcRenderer.invoke('get-rooms'),
+    closeRoom: (roomId) => ipcRenderer.invoke('close-room', roomId)
 });

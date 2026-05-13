@@ -4,12 +4,13 @@ let currentSearch = '';
 let currentRows = 5;
 let games = [];
 let gameToDelete = null;
+let currentHostGameId = null;
 
 // Play time tracking
 let currentlyPlaying = null; // { id, startTime, timerInterval }
 let playTimerInterval = null;
 
-document.addEventListener('DOMContentLoaded', () => { 
+document.addEventListener('DOMContentLoaded', () => {
     bindWindowControls();
     bindCrudControls();
     loadGames();
@@ -52,7 +53,7 @@ async function loadGames() {
         console.error('Failed to load games:', error);
         showToast('Failed to load games from JSON', 'error');
     }
-}
+} 
 
 function formatTimeAgo(timestamp) {
     if (!timestamp) return 'Never';
@@ -62,7 +63,7 @@ function formatTimeAgo(timestamp) {
     const minutes = Math.floor(seconds / 60);
     const hours = Math.floor(minutes / 60);
     const days = Math.floor(hours / 24);
-    
+
     if (seconds < 60) return 'Just now';
     if (minutes < 60) return `${minutes}m ago`;
     if (hours < 24) return `${hours}h ago`;
@@ -113,9 +114,9 @@ function renderGames(gamesToRender) {
     grid.innerHTML = gamesToRender.map(game => {
         const gameId = JSON.stringify(game.id);
         const isPlaying = currentlyPlaying && sameId(currentlyPlaying.id, game.id);
-        const statusBadge = isPlaying ? '<span class="status-badge status-playing">Playing</span>' : 
-                            game.status === 'update' ? '<span class="status-badge status-update">Update</span>' : 
-                            game.status === 'installed' ? '<span class="status-badge status-installed">Ready</span>' : '';
+        const statusBadge = isPlaying ? '<span class="status-badge status-playing">Playing</span>' :
+            game.status === 'update' ? '<span class="status-badge status-update">Update</span>' :
+                game.status === 'installed' ? '<span class="status-badge status-installed">Ready</span>' : '';
         return `
         <div class="game-card" data-title="${game.title.toLowerCase()}">
             <div class="game-cover" onclick='launchGameById(${gameId})'>
@@ -129,7 +130,18 @@ function renderGames(gamesToRender) {
                 <h4 class="game-title">${game.title}</h4>
                 <div class="game-meta"><span>${game.genre}</span><span>${formatHours(game.totalMinutes)}</span></div>
                 <div class="game-tags"><span class="tag">${game.genre}</span>${game.status === 'installed' ? '<span class="tag">Installed</span>' : ''}${game.isFavorite ? '<span class="tag">★ Favorite</span>' : ''}${game.status === 'update' ? '<span class="tag" style="color:#ff6b6b;border-color:rgba(255,50,50,0.3)">Update Available</span>' : ''}</div>
-            </div> 
+            </div>
+            ${game.HostSetup == "yes" ? `
+            <button class="btn" style="padding: 10px 14px; width: 100%; border-radius: 0;"
+            onclick="openHostModal(${game})">
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                     <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                    <path d="M2 17l10 5 10-5"/>
+                    <path d="M2 12l10 5 10-5"/>
+                </svg>
+                Host Game
+            </button>  ` : ""}
+           
             ${isOwnerLoggedIn ? `
             <div class="game-actions">
                 <button class="action-btn" onclick='event.stopPropagation(); toggleFavorite(${gameId})' title="${game.isFavorite ? 'Remove from favorites' : 'Add to favorites'}">${game.isFavorite ? '★' : '☆'}</button>
@@ -172,45 +184,45 @@ function switchTab(element, tab) { document.querySelectorAll('.nav-item').forEac
 
 // Replace the old launchGameById and timer functions with these:
 
-async function launchGameById(gameId) { 
+async function launchGameById(gameId) {
     const game = findGameById(gameId);
     if (!game) { showToast('Game not found', 'error'); return; }
-    
+
     // If already playing this game, do nothing
     if (currentlyPlaying && sameId(currentlyPlaying.id, gameId)) {
         showToast(`${game.title} is already running`, 'info');
         return;
     }
-    
+
     // If playing another game, stop it first
     if (currentlyPlaying) {
         await stopPlaying();
     }
 
     console.log(game);
-    
+
     if (game.exePath && game.exePath.trim() !== '') {
         showToast(`Launching ${game.title}...`, 'success');
-        
+
         // Start play timer locally for UI
         startPlayTimer(game);
-        
+
         // Launch with process monitoring (pass gameId)
-        if (window.electronAPI && window.electronAPI.launchGame) { 
+        if (window.electronAPI && window.electronAPI.launchGame) {
             window.electronAPI.launchGame(game.id, game.launchMethod, game.appId);
         } else {
             showToast(`Would launch: ${game.exePath}`, 'info');
             console.log('Launching:', game.exePath);
         }
-        
+
         // Update last played
         const now = Date.now();
         game.lastPlayedTimestamp = now;
         game.lastPlayed = 'Just now';
-        
+
         try {
             if (window.electronAPI && window.electronAPI.updateGame) {
-                await window.electronAPI.updateGame(game.id, { 
+                await window.electronAPI.updateGame(game.id, {
                     lastPlayedTimestamp: now,
                     lastPlayed: 'Just now'
                 });
@@ -231,15 +243,15 @@ function startPlayTimer(game) {
         startTime: Date.now(),
         startTotalMinutes: game.totalMinutes || 0
     };
-    
+
     // Show playing indicator
     document.getElementById('playingGameName').textContent = game.title;
     document.getElementById('playingIndicator').classList.add('active');
-    
+
     // Update timer every second
     playTimerInterval = setInterval(async () => {
         if (!currentlyPlaying) return;
-        
+
         // Get accurate elapsed time from main process if available
         let elapsedSeconds = 0;
         if (window.electronAPI && window.electronAPI.getElapsedTime) {
@@ -251,39 +263,39 @@ function startPlayTimer(game) {
         } else {
             elapsedSeconds = Math.floor((Date.now() - currentlyPlaying.startTime) / 1000);
         }
-        
+
         const totalMinutes = currentlyPlaying.startTotalMinutes + Math.floor(elapsedSeconds / 60);
         document.getElementById('playingTime').textContent = formatPlayTime(totalMinutes);
     }, 1000);
-    
+
     // Re-render to show "Playing" badge
     applyFilters();
 }
 
 async function stopPlaying() {
     if (!currentlyPlaying) return;
-    
+
     const gameId = currentlyPlaying.id;
-    
+
     // Tell main process to stop tracking
     if (window.electronAPI && window.electronAPI.stopGame) {
         window.electronAPI.stopGame(gameId);
     }
-    
+
     // Clear local timer
     clearInterval(playTimerInterval);
     playTimerInterval = null;
-    
+
     // Calculate final time locally too (fallback)
     const elapsedMinutes = Math.floor((Date.now() - currentlyPlaying.startTime) / 60000);
     const game = findGameById(gameId);
-    
+
     if (game) {
         game.totalMinutes = (game.totalMinutes || 0) + elapsedMinutes;
         game.hours = formatHours(game.totalMinutes);
         showToast(`${game.title} played for ${formatPlayTime(elapsedMinutes)}`, 'success');
     }
-    
+
     currentlyPlaying = null;
     document.getElementById('playingIndicator').classList.remove('active');
     applyFilters();
@@ -293,14 +305,14 @@ async function stopPlaying() {
 if (window.electronAPI && window.electronAPI.onGameStopped) {
     window.electronAPI.onGameStopped((data) => {
         console.log('Game stopped by monitor:', data);
-        
+
         // If this is the currently playing game, update UI
         if (currentlyPlaying && sameId(currentlyPlaying.id, data.gameId)) {
             clearInterval(playTimerInterval);
             playTimerInterval = null;
             currentlyPlaying = null;
             document.getElementById('playingIndicator').classList.remove('active');
-            
+
             // Update local game data
             const game = findGameById(data.gameId);
             if (game) {
@@ -309,7 +321,7 @@ if (window.electronAPI && window.electronAPI.onGameStopped) {
                 game.lastPlayed = 'Just now';
                 game.lastPlayedTimestamp = Date.now();
             }
-            
+
             showToast(`Game closed. Played for ${formatPlayTime(data.elapsedMinutes)}`, 'success');
             applyFilters();
         }
@@ -336,12 +348,12 @@ async function toggleFavorite(gameId) {
     }
 }
 
-function openExternal(url) { 
-    showToast(`Opening ${url}...`, 'info'); 
+function openExternal(url) {
+    showToast(`Opening ${url}...`, 'info');
     if (window.electronAPI && window.electronAPI.openExternal) {
         window.electronAPI.openExternal(url);
     } else {
-        window.open(url, '_blank'); 
+        window.open(url, '_blank');
     }
 }
 
@@ -351,7 +363,7 @@ function closeLoginModal() { document.getElementById('loginModal').classList.rem
 async function login() {
     const username = document.getElementById('loginUsername').value.trim();
     const password = document.getElementById('loginPassword').value.trim();
-    
+
     try {
         let valid = false;
         if (window.electronAPI && window.electronAPI.verifyOwner) {
@@ -359,7 +371,7 @@ async function login() {
         } else {
             valid = (username === 'jldems' && password === '0925');
         }
-        
+
         if (valid) {
             isOwnerLoggedIn = true;
             closeLoginModal();
@@ -368,8 +380,8 @@ async function login() {
             document.getElementById('addGameNav').style.display = 'flex';
             showToast('Owner logged in successfully', 'success');
             applyFilters();
-        } else { 
-            showToast('Invalid credentials', 'error'); 
+        } else {
+            showToast('Invalid credentials', 'error');
         }
     } catch (error) {
         console.error('Login error:', error);
@@ -403,6 +415,209 @@ function closeAddGameModal() {
     document.getElementById('gameExeManual').value = '';
 }
 
+/* host */
+async function openHostModal(gameId) {
+    currentHostGameId = gameId;
+    document.getElementById('hostModal').classList.add('active');
+    await loadMaps(); // Load the dropdown options
+}
+
+function closeHostModal() {
+    document.getElementById('hostModal').classList.remove('active');
+    document.getElementById('hostPlayerName').value = '';
+    document.getElementById('hostGameMap').value = '';
+}
+// Fetch and populate the map dropdown
+async function loadMaps() {
+    try {
+        const response = await fetch('left4dead2maps.json');
+        const data = await response.json();
+        const select = document.getElementById('hostGameMap');
+        
+        // Reset dropdown
+        select.innerHTML = '<option value="">Select a map...</option>';
+        
+        // Populate with campaign maps
+        data.maps.forEach(map => {
+            const option = document.createElement('option');
+            option.value = map.value;
+            option.textContent = map.label;
+            select.appendChild(option);
+        });
+    } catch (error) {
+        console.error('Failed to load maps:', error);
+        showToast('Failed to load maps', 'error');
+    }
+}
+// Create room with validation
+async function createRoom() {
+    const playerName = document.getElementById('hostPlayerName').value.trim();
+    const map = document.getElementById('hostGameMap').value;
+    
+    if (!playerName) {
+        showToast('Please enter your name', 'error');
+        return;
+    }
+    if (!map) {
+        showToast('Please select a map', 'error');
+        return;
+    }
+    
+    try {
+        // Show loading state
+        const btn = document.querySelector('.btn-play');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" class="spin"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/></svg> Creating...';
+        btn.disabled = true;
+        
+        // Call Electron main process to create room
+        const result = await window.electronAPI.createRoom({
+            gameId: currentHostGameId,
+            playerName,
+            map
+        });
+        
+        if (result.success) {
+            const { room } = result;
+            
+            // Show room info in the Active Rooms section
+            renderHostRoom(room);
+            
+            showToast(`Room created! ${room.url}`, 'success');
+            
+            // Store current room ID for later
+            window.currentRoomId = room.id;
+        }
+        
+    } catch (error) {
+        console.error('Failed to create room:', error);
+        showToast('Failed to create room', 'error');
+    } finally {
+        const btn = document.querySelector('.btn-play');
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
+}
+// Display the hosted room in Active Rooms section
+function renderHostRoom(room) {
+    const roomsList = document.getElementById('roomsList');
+    
+    roomsList.innerHTML = `
+        <div style="padding: 16px; width: 100%;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+                <div>
+                    <div style="font-size: 13px; font-weight: 600; color: var(--text-primary); margin-bottom: 2px;">
+                        ${room.host.playerName}'s Room
+                    </div>
+                    <div style="font-size: 11px; color: var(--text-muted);">
+                        ${room.host.pcName} • ${room.host.map}
+                    </div>
+                </div>
+                <span style="font-size: 10px; padding: 3px 8px; background: rgba(50, 255, 50, 0.15); color: #6bff6b; border-radius: 20px; border: 1px solid rgba(50, 255, 50, 0.3);">
+                    HOSTING
+                </span>
+            </div>
+            
+            <div style="background: var(--bg-hover); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; margin-bottom: 12px;">
+                <div style="font-size: 10px; color: var(--text-muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;">Room URL</div>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <code style="font-size: 12px; color: var(--text-primary); flex: 1; overflow: hidden; text-overflow: ellipsis;">${room.url}</code>
+                    <button onclick="copyToClipboard('${room.url}')" class="btn" style="padding: 4px 10px; font-size: 11px;">Copy</button>
+                </div>
+            </div>
+            
+            <div style="display: flex; gap: 8px;">
+                <button onclick="closeCurrentRoom()" class="btn btn-danger" style="flex: 1; font-size: 11px;">Close Room</button>
+            </div>
+        </div>
+    `;
+}
+
+// Copy URL to clipboard
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(() => {
+        showToast('URL copied!', 'success');
+    });
+}
+
+// Close the current room
+async function closeCurrentRoom() {
+    if (!window.currentRoomId) return;
+    
+    try {
+        await window.electronAPI.closeRoom(window.currentRoomId);
+        window.currentRoomId = null;
+        
+        // Reset to empty state
+        document.getElementById('roomsList').innerHTML = `
+            <div style="text-align: center; color: var(--text-muted); padding: 20px;">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom: 10px; opacity: 0.3;">
+                    <circle cx="11" cy="11" r="8"/>
+                    <path d="M21 21l-4.35-4.35"/>
+                </svg>
+                <p style="font-size: 12px;">Click "Refresh Rooms" to scan for active sessions</p>
+            </div>
+        `;
+        
+        showToast('Room closed', 'info');
+    } catch (error) {
+        showToast('Failed to close room', 'error');
+    }
+}
+
+// Refresh active rooms list
+async function refreshRooms() {
+    const roomsList = document.getElementById('roomsList');
+    
+    // If user is hosting, don't overwrite their room display
+    if (window.currentRoomId) return;
+    
+    roomsList.innerHTML = `
+        <div style="text-align: center; color: var(--text-muted); padding: 20px;">
+            <p style="font-size: 12px;">Scanning...</p>
+        </div>
+    `;
+    
+    try {
+        const rooms = await window.electronAPI.getRooms();
+        
+        if (rooms.length === 0) {
+            roomsList.innerHTML = `
+                <div style="text-align: center; color: var(--text-muted); padding: 20px;">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom: 10px; opacity: 0.3;">
+                        <circle cx="11" cy="11" r="8"/>
+                        <path d="M21 21l-4.35-4.35"/>
+                    </svg>
+                    <p style="font-size: 12px;">No active sessions found</p>
+                </div>
+            `;
+            return;
+        }
+        
+        // Render found rooms
+        roomsList.innerHTML = rooms.map(room => `
+            <div style="padding: 12px; border-bottom: 1px solid var(--border);">
+                <div style="font-size: 12px; font-weight: 600;">${room.host.playerName}</div>
+                <div style="font-size: 11px; color: var(--text-muted);">${room.host.map} • ${room.playerCount} players</div>
+                <code style="font-size: 10px; color: var(--text-secondary);">${room.url}</code>
+            </div>
+        `).join('');
+        
+    } catch (error) {
+        console.error('Failed to refresh rooms:', error);
+    }
+}
+
+// Close modal handlers
+document.getElementById('hostModal').addEventListener('click', function(e) {
+    if (e.target === this) closeHostModal();
+});
+
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeHostModal();
+});
+
+/* end host */
 async function addGame() {
     if (!isOwnerLoggedIn) { showToast('Owner login required', 'error'); return; }
     const title = document.getElementById('gameTitle').value.trim();
@@ -410,29 +625,31 @@ async function addGame() {
     const cover = document.getElementById('gameCover').value.trim() || 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=400&h=600&fit=crop&q=80';
     const manualPath = document.getElementById('gameExeManual').value.trim();
     const launchMethod = document.getElementById('gameLaunchMethod').value;
+    const HostSetup = document.getElementById('gameHostSetup').value;
     const appId = document.getElementById('gameAppId').value.trim();
     if (!title) { showToast('Please enter a game title', 'info'); return; }
     if (!genre) { showToast('Please select a genre', 'info'); return; }
     if (!manualPath) { showToast('Please enter an executable path', 'info'); return; }
-    
-    const newGame = { 
-        title: title, 
-        cover: cover, 
-        genre: genre, 
-        hours: "0h", 
+
+    const newGame = {
+        title: title,
+        cover: cover,
+        genre: genre,
+        hours: "0h",
         totalMinutes: 0,
-        status: "installed", 
-        lastPlayed: "Never", 
+        status: "installed",
+        lastPlayed: "Never",
         lastPlayedTimestamp: null,
-        isFavorite: false, 
+        isFavorite: false,
         exePath: manualPath,
         detectedExePath: '',
         launchMethod: launchMethod,
+        HostSetup: HostSetup,
         appId: appId,
         version: "1.0.0",
         latestVersion: "1.0.0"
     };
-    
+
     try {
         if (!window.electronAPI || !window.electronAPI.addGame) {
             throw new Error('Electron API is unavailable. Restart the launcher and check preload setup.');
@@ -498,23 +715,23 @@ function showToast(message, type = 'info') {
     setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 350); }, 3000);
 }
 
-function minimizeWindow() { 
+function minimizeWindow() {
     if (window.electronAPI && window.electronAPI.minimize) {
         window.electronAPI.minimize();
     } else {
-        showToast('Minimized', 'info'); 
+        showToast('Minimized', 'info');
     }
 }
 
-function maximizeWindow() { 
+function maximizeWindow() {
     if (window.electronAPI && window.electronAPI.maximize) {
         window.electronAPI.maximize();
     } else {
-        showToast('Maximized', 'info'); 
+        showToast('Maximized', 'info');
     }
 }
 
-function closeWindow() { 
+function closeWindow() {
     if (currentlyPlaying) {
         if (!confirm('A game is currently running. Stop playing and exit?')) return;
         stopPlaying();
@@ -524,18 +741,18 @@ function closeWindow() {
             window.electronAPI.close();
         }
     } else {
-        if (confirm('Exit JLJGAMINGHOUSE Launcher?')) { 
-            showToast('Closing...', 'info'); 
-            setTimeout(() => document.body.innerHTML = '<div style="display:flex;justify-content:center;align-items:center;height:100vh;color:#666;font-size:16px;font-family:Poppins;">JLJGAMINGHOUSE Closed</div>', 800); 
+        if (confirm('Exit JLJGAMINGHOUSE Launcher?')) {
+            showToast('Closing...', 'info');
+            setTimeout(() => document.body.innerHTML = '<div style="display:flex;justify-content:center;align-items:center;height:100vh;color:#666;font-size:16px;font-family:Poppins;">JLJGAMINGHOUSE Closed</div>', 800);
         }
     }
 }
 
 document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') { 
-        document.getElementById('searchInput').blur(); 
-        closeLoginModal(); 
-        closeAddGameModal(); 
+    if (e.key === 'Escape') {
+        document.getElementById('searchInput').blur();
+        closeLoginModal();
+        closeAddGameModal();
         closeDeleteModal();
     }
     if (e.ctrlKey && e.key === 'f') { e.preventDefault(); document.getElementById('searchInput').focus(); }
@@ -551,11 +768,11 @@ window.addEventListener('beforeunload', () => {
 // Check single game
 async function checkGameUpdate(gameId) {
     showToast('Checking for updates...', 'info');
-    
+
     try {
         if (window.electronAPI && window.electronAPI.checkGameUpdate) {
             const result = await window.electronAPI.checkGameUpdate(gameId);
-            
+
             if (result.hasUpdate) {
                 showToast(`Update available: ${result.currentVersion} → ${result.latestVersion}`, 'success');
                 applyFilters();
@@ -575,11 +792,11 @@ async function checkGameUpdate(gameId) {
 // Check all games
 async function checkAllUpdates() {
     showToast('Checking all games for updates...', 'info');
-    
+
     try {
         if (window.electronAPI && window.electronAPI.checkAllUpdates) {
             const updates = await window.electronAPI.checkAllUpdates();
-            
+
             if (updates.length > 0) {
                 showToast(`${updates.length} update(s) found!`, 'success');
                 updates.forEach(u => {

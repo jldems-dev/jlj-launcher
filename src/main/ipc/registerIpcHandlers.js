@@ -1,6 +1,6 @@
 const { shell } = require('electron');
 
-function registerIpcHandlers({ ipcMain, store, trackingService, launchService, detectionService, getMainWindow }) {
+function registerIpcHandlers({ ipcMain, store, trackingService, launchService, detectionService, hostService, getMainWindow }) {
     ipcMain.handle('db-get-games', () => {
         return store.getGames();
     });
@@ -71,6 +71,19 @@ function registerIpcHandlers({ ipcMain, store, trackingService, launchService, d
     ipcMain.on('window-close', () => {
         const mainWindow = getMainWindow();
         if (mainWindow && !mainWindow.isDestroyed()) mainWindow.close();
+    });
+
+   // Room hosting handlers
+    ipcMain.handle('create-room', async (event, roomData) => {
+        return hostService.createRoom(roomData);
+    });
+
+    ipcMain.handle('get-rooms', async () => {
+        return hostService.getRooms();
+    });
+
+    ipcMain.handle('close-room', async (event, roomId) => {
+        return hostService.closeRoom(roomId);
     });
 }
 

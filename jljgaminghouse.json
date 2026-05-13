@@ -3,17 +3,18 @@
     {
       "id": 4,
       "title": "Left 4 Dead 2",
-      "cover": "C:\\Games\\Left 4 Dead 2\\Left4Dead2.jpg",
-      "genre": "Shooter",
+      "cover": "C:\\Games\\Left 4 Dead 2\\left4dead2.ico",
+      "genre": "Horror",
       "hours": "1m",
       "totalMinutes": 1,
       "status": "installed",
       "lastPlayed": "Just now",
-      "lastPlayedTimestamp": 1778592020853,
+      "lastPlayedTimestamp": 1778679868375,
       "isFavorite": false,
       "exePath": "C:\\Games\\Left 4 Dead 2\\left4dead2.exe",
       "detectedExePath": "",
       "launchMethod": "direct",
+      "HostSetup": "yes",
       "appId": "",
       "version": "1.0.0",
       "latestVersion": "1.0.0"
@@ -34,7 +35,8 @@
       "launchMethod": "auto_detect",
       "appId": "",
       "version": "1.0.0",
-      "latestVersion": "1.0.0"
+      "latestVersion": "1.0.0",
+      "HostSetup": "no"
     },
     {
       "id": 2,
@@ -52,7 +54,8 @@
       "launchMethod": "direct",
       "appId": "",
       "version": "1.0.0",
-      "latestVersion": "1.0.0"
+      "latestVersion": "1.0.0",
+      "HostSetup": "no"
     },
     {
       "id": 1,
@@ -70,7 +73,8 @@
       "launchMethod": "direct",
       "appId": "",
       "version": "1.0.0",
-      "latestVersion": "1.0.0"
+      "latestVersion": "1.0.0",
+      "HostSetup": "no"
     }
   ],
   "owner": {
