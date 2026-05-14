@@ -13,9 +13,10 @@
   "type": "commonjs",
   "devDependencies": {
     "electron": "^42.0.1",
-    "electron-rebuild": "^3.2.9"
+    "electron-rebuild": "^3.2.9",
+    "electronmon": "^2.0.4"
   },
-  "dependencies": { 
+  "dependencies": {
     "buffer-crc32": "^0.2.13",
     "debug": "^4.4.3",
     "end-of-stream": "^1.4.5",

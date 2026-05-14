@@ -1073,3 +1073,123 @@ body {
     from { transform: rotate(0deg); }
     to { transform: rotate(360deg); }
 }
+
+/* host game modal */
+.host-game-info {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-bottom: 20px;
+}
+
+.host-game-info img {
+    width: 72px;
+    height: 72px;
+    border-radius: 12px;
+    object-fit: cover;
+    background: #111;
+}
+
+.host-game-details {
+    flex: 1;
+}
+
+.host-game-title {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 6px;
+}
+
+.host-game-tags {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+}
+
+.host-game-exe {
+    font-size: 11px;
+    color: var(--text-muted);
+    word-break: break-all;
+    line-height: 1.4;
+}
+
+/* panel wrapper */
+.host-room-panel {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+/* form layout */
+.host-form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px; 
+}
+
+/* create room button spacing fix */
+.host-form .btn {
+    margin-top: 0;
+}
+
+/* header */
+.host-room-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 14px;
+    margin-top: 16px;
+    padding-top: 0;
+}
+
+.host-room-header h3 {
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 2px;
+}
+
+.host-room-header p {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+/* refresh button */
+.refresh-btn {
+    padding: 8px 14px;
+    font-size: 11px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* rooms list */
+.rooms-list {
+    background: rgba(255, 255, 255, 0.02);
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    min-height: 160px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* empty state */
+.rooms-empty {
+    text-align: center;
+    color: var(--text-muted);
+    padding: 20px;
+}
+
+.rooms-empty svg {
+    margin-bottom: 10px;
+    opacity: 0.3;
+}

@@ -6,8 +6,8 @@ function createBrowserWindowOptions(rootDir) {
         height: 900,
         minWidth: 1000,
         minHeight: 600,
-        frame: false,
-        titleBarStyle: 'hidden',
+        /* frame: false,
+        titleBarStyle: 'hidden', */
         backgroundColor: '#050505',
         icon: path.join(rootDir, 'assets', 'images', 'favicon.ico'),
         webPreferences: {

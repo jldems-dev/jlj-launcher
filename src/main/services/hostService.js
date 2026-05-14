@@ -1,5 +1,6 @@
 const os = require('os');
 const http = require('http');
+const { json } = require('stream/consumers');
 
 // Get local IP address
 function getLocalIP() {
@@ -64,7 +65,7 @@ function createHostService() {
     }
 
     return {
-        createRoom(roomData) {
+        createRoom(roomData) { 
             const roomId = `room-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
             
             const hostInfo = {
@@ -72,10 +73,11 @@ function createHostService() {
                 localIP: getLocalIP(),
                 playerName: roomData.playerName,
                 map: roomData.map,
+                mapname: roomData.mapname,
                 gameId: roomData.gameId,
                 port: null,
                 createdAt: new Date().toISOString()
-            };
+            }; 
             
             const { server, port, url } = createRoomServer(roomId, hostInfo);
             

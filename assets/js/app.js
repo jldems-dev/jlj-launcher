@@ -4,7 +4,9 @@ let currentSearch = '';
 let currentRows = 5;
 let games = [];
 let gameToDelete = null;
-let currentHostGameId = null;
+let currentHostGame = null;
+let cachedMaps = [];
+let listmap = null;
 
 // Play time tracking
 let currentlyPlaying = null; // { id, startTime, timerInterval }
@@ -124,32 +126,40 @@ function renderGames(gamesToRender) {
                 ${statusBadge}
                 <div class="play-btn-overlay"><svg width="20" height="20" fill="black" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div>
                 <div class="game-overlay"><div style="font-size: 11px; color: var(--text-muted); margin-bottom: 3px;">${formatTimeAgo(game.lastPlayedTimestamp)}</div><div style="font-size: 13px; font-weight: 600;">${formatHours(game.totalMinutes)} played</div></div>
-                ${game.status === 'update' ? '<div class="download-progress"><div class="download-progress-bar" style="width: 65%"></div></div>' : ''}
+                ${game.status === "update" ? '<div class="download-progress"><div class="download-progress-bar" style="width: 65%"></div></div>' : ""}
             </div>
             <div class="game-info">
                 <h4 class="game-title">${game.title}</h4>
                 <div class="game-meta"><span>${game.genre}</span><span>${formatHours(game.totalMinutes)}</span></div>
-                <div class="game-tags"><span class="tag">${game.genre}</span>${game.status === 'installed' ? '<span class="tag">Installed</span>' : ''}${game.isFavorite ? '<span class="tag">★ Favorite</span>' : ''}${game.status === 'update' ? '<span class="tag" style="color:#ff6b6b;border-color:rgba(255,50,50,0.3)">Update Available</span>' : ''}</div>
+                <div class="game-tags"><span class="tag">${game.genre}</span>${game.status === "installed" ? '<span class="tag">Installed</span>' : ""}${game.isFavorite ? '<span class="tag">★ Favorite</span>' : ""}${game.status === "update" ? '<span class="tag" style="color:#ff6b6b;border-color:rgba(255,50,50,0.3)">Update Available</span>' : ""}</div>
             </div>
-            ${game.HostSetup == "yes" ? `
+            ${
+              game.HostSetup == "yes"
+                ? `
             <button class="btn" style="padding: 10px 14px; width: 100%; border-radius: 0;"
-            onclick="openHostModal(${game})">
+            onclick='openHostModal(${JSON.stringify(JSON.stringify(game))})'>
                 <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
                      <path d="M12 2L2 7l10 5 10-5-10-5z"/>
                     <path d="M2 17l10 5 10-5"/>
                     <path d="M2 12l10 5 10-5"/>
                 </svg>
                 Host Game
-            </button>  ` : ""}
+            </button>  `
+                : ""
+            }
            
-            ${isOwnerLoggedIn ? `
+            ${
+              isOwnerLoggedIn
+                ? `
             <div class="game-actions">
-                <button class="action-btn" onclick='event.stopPropagation(); toggleFavorite(${gameId})' title="${game.isFavorite ? 'Remove from favorites' : 'Add to favorites'}">${game.isFavorite ? '★' : '☆'}</button>
+                <button class="action-btn" onclick='event.stopPropagation(); toggleFavorite(${gameId})' title="${game.isFavorite ? "Remove from favorites" : "Add to favorites"}">${game.isFavorite ? "★" : "☆"}</button>
                 <button class="action-btn delete" onclick='event.stopPropagation(); openDeleteModal(${gameId})' title="Delete game">🗑</button>
             </div>
-            ` : ''}
+            `
+                : ""
+            }
         </div>
-    `}).join('');
+    `;}).join('');
 }
 
 function changeRows(rows) {
@@ -359,7 +369,7 @@ function openExternal(url) {
 
 function openLoginModal() { if (isOwnerLoggedIn) { logout(); return; } document.getElementById('loginModal').classList.add('active'); }
 function closeLoginModal() { document.getElementById('loginModal').classList.remove('active'); document.getElementById('loginUsername').value = ''; document.getElementById('loginPassword').value = ''; }
-
+/* login */
 async function login() {
     const username = document.getElementById('loginUsername').value.trim();
     const password = document.getElementById('loginPassword').value.trim();
@@ -388,7 +398,7 @@ async function login() {
         showToast('Login failed', 'error');
     }
 }
-
+/* logout */
 function logout() {
     // Stop any active game
     if (currentlyPlaying) {
@@ -400,6 +410,13 @@ function logout() {
     document.getElementById('addGameNav').style.display = 'none';
     applyFilters();
     showToast('Logged out', 'info');
+}
+
+function getMyIdentity() {
+  return {
+    ip: cachedLocalIP, // or from preload
+    pc: require("os").hostname?.(), // renderer-safe alternative if exposed
+  };
 }
 
 function openAddGameModal() {
@@ -416,10 +433,41 @@ function closeAddGameModal() {
 }
 
 /* host */
-async function openHostModal(gameId) {
-    currentHostGameId = gameId;
-    document.getElementById('hostModal').classList.add('active');
-    await loadMaps(); // Load the dropdown options
+async function openHostModal(game) {
+
+    currentHostGame = JSON.parse(game);
+    await loadMaps();
+
+    const savedRoom = localStorage.getItem("roominfo");
+
+    if (savedRoom) {
+      const room = JSON.parse(savedRoom);
+
+      console.log("Restored room:", room);
+
+      // example restore UI
+      document.getElementById("hostPlayerName").value = room.host.playerName;
+      document.getElementById("hostGameMap").value = room.host.map;
+    }
+
+     
+    document.getElementById("hostModal").classList.add("active");
+
+    // Populate modal
+    document.getElementById("hostGameCover").src = currentHostGame.cover;
+
+    document.getElementById("hostGameTitle").textContent = currentHostGame.title;
+
+    document.getElementById("hostGameGenre").textContent = currentHostGame.genre;
+
+    document.getElementById("hostGameStatus").textContent =
+        currentHostGame.status;
+
+    document.getElementById("hostGameVersion").textContent =
+        `v${currentHostGame.version}`;
+
+    document.getElementById("hostGameExe").textContent = currentHostGame.exePath;
+   // Load the dropdown options
 }
 
 function closeHostModal() {
@@ -430,20 +478,25 @@ function closeHostModal() {
 // Fetch and populate the map dropdown
 async function loadMaps() {
     try {
-        const response = await fetch('left4dead2maps.json');
-        const data = await response.json();
-        const select = document.getElementById('hostGameMap');
-        
-        // Reset dropdown
-        select.innerHTML = '<option value="">Select a map...</option>';
-        
-        // Populate with campaign maps
-        data.maps.forEach(map => {
-            const option = document.createElement('option');
-            option.value = map.value;
-            option.textContent = map.label;
-            select.appendChild(option);
-        });
+      const response = await fetch("left4dead2maps.json");
+      const data = await response.json();
+      
+      cachedMaps = data.maps; // store globally
+
+      const select = document.getElementById("hostGameMap");
+
+      // Reset dropdown
+      select.innerHTML = '<option value="">Select a map...</option>';
+
+      // Populate with campaign maps
+      data.maps.forEach((map) => {
+        const option = document.createElement("option");
+        option.value = map.value;
+        option.textContent = map.label;
+        select.appendChild(option);
+      });
+
+      return cachedMaps;
     } catch (error) {
         console.error('Failed to load maps:', error);
         showToast('Failed to load maps', 'error');
@@ -451,33 +504,39 @@ async function loadMaps() {
 }
 // Create room with validation
 async function createRoom() {
-    const playerName = document.getElementById('hostPlayerName').value.trim();
-    const map = document.getElementById('hostGameMap').value;
-    
-    if (!playerName) {
-        showToast('Please enter your name', 'error');
-        return;
-    }
-    if (!map) {
-        showToast('Please select a map', 'error');
-        return;
-    }
-    
-    try {
-        // Show loading state
-        const btn = document.querySelector('.btn-play');
-        const originalText = btn.innerHTML;
-        btn.innerHTML = '<svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" class="spin"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/></svg> Creating...';
-        btn.disabled = true;
-        
+  const playerName = document.getElementById("hostPlayerName").value.trim();
+  const map = document.getElementById("hostGameMap").value;
+
+  if (!playerName) {
+    showToast("Please enter your name", "error");
+    return;
+  }
+  if (!map) {
+    showToast("Please select a map", "error");
+    return;
+  }
+  
+  const btn = document.querySelector(".btn-create-room"); 
+
+  try {
+
+        setLoadingButton(btn, true, "Creating...");
+
+        const selectedMap = cachedMaps.find((m) => m.value === map)?.label; 
+        await new Promise((r) => setTimeout(r, 1000));
+
         // Call Electron main process to create room
         const result = await window.electronAPI.createRoom({
-            gameId: currentHostGameId,
-            playerName,
-            map
+          gameId: currentHostGame.gamId,
+          playerName,
+          map,
+          mapname: selectedMap,
         });
         
         if (result.success) {
+
+            localStorage.setItem("roominfo", JSON.stringify(result.room));
+
             const { room } = result;
             
             // Show room info in the Active Rooms section
@@ -488,15 +547,12 @@ async function createRoom() {
             // Store current room ID for later
             window.currentRoomId = room.id;
         }
-        
-    } catch (error) {
-        console.error('Failed to create room:', error);
-        showToast('Failed to create room', 'error');
-    } finally {
-        const btn = document.querySelector('.btn-play');
-        btn.innerHTML = originalText;
-        btn.disabled = false;
-    }
+  } catch (error) {
+    console.error("Failed to create room:", error);
+    showToast("Failed to create room", "error");
+  } finally {
+    setLoadingButton(btn, false);
+  }
 }
 // Display the hosted room in Active Rooms section
 function renderHostRoom(room) {
@@ -510,7 +566,7 @@ function renderHostRoom(room) {
                         ${room.host.playerName}'s Room
                     </div>
                     <div style="font-size: 11px; color: var(--text-muted);">
-                        ${room.host.pcName} • ${room.host.map}
+                        ${room.host.pcName} • ${room.host.mapname}
                     </div>
                 </div>
                 <span style="font-size: 10px; padding: 3px 8px; background: rgba(50, 255, 50, 0.15); color: #6bff6b; border-radius: 20px; border: 1px solid rgba(50, 255, 50, 0.3);">
@@ -522,7 +578,7 @@ function renderHostRoom(room) {
                 <div style="font-size: 10px; color: var(--text-muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;">Room URL</div>
                 <div style="display: flex; gap: 8px; align-items: center;">
                     <code style="font-size: 12px; color: var(--text-primary); flex: 1; overflow: hidden; text-overflow: ellipsis;">${room.url}</code>
-                    <button onclick="copyToClipboard('${room.url}')" class="btn" style="padding: 4px 10px; font-size: 11px;">Copy</button>
+                    <button onclick="copyToClipboard('${room.url}')" class="btn" style="padding: 4px 10px; font-size: 11px;">Join</button>
                 </div>
             </div>
             
@@ -532,6 +588,84 @@ function renderHostRoom(room) {
         </div>
     `;
 }
+// Refresh active rooms list
+async function refreshRooms() {
+    const roomsList = document.getElementById('roomsList'); 
+    
+    // If user is hosting, don't overwrite their room display
+    if (window.currentRoomId) return;
+    
+
+    const btn = document.querySelector(".refresh-btn"); 
+    setLoadingButton(btn, true, "Scanning...");
+    
+    try {
+      const rooms = await window.electronAPI.getRooms();
+
+      if (rooms.length === 0) {
+        roomsList.innerHTML = `
+                <div style="text-align: center; color: var(--text-muted); padding: 20px;">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom: 10px; opacity: 0.3;">
+                        <circle cx="11" cy="11" r="8"/>
+                        <path d="M21 21l-4.35-4.35"/>
+                    </svg>
+                    <p style="font-size: 12px;">No active sessions found</p>
+                </div>
+            `;
+        return;
+      }
+ 
+      // Render found rooms
+      roomsList.innerHTML = rooms
+        .map(
+          (room) => ` 
+          <div style="padding: 16px; width: 100%;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+                    <div>
+                        <div style="font-size: 13px; font-weight: 600; color: var(--text-primary); margin-bottom: 2px;">
+                            ${room.host.playerName}'s Room
+                        </div>
+                        <div style="font-size: 11px; color: var(--text-muted);">
+                            ${room.host.pcName} • ${room.host.mapname}
+                        </div>
+                    </div>
+                    <span style="font-size: 10px; padding: 3px 8px; background: rgba(50, 255, 50, 0.15); color: #6bff6b; border-radius: 20px; border: 1px solid rgba(50, 255, 50, 0.3);">
+                        HOSTING
+                    </span>
+                </div>
+                
+                <div style="background: var(--bg-hover); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; margin-bottom: 12px;">
+                    <div style="font-size: 10px; color: var(--text-muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;">Room URL</div>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <code style="font-size: 12px; color: var(--text-primary); flex: 1; overflow: hidden; text-overflow: ellipsis;">${room.url}</code>
+                        <button onclick="copyToClipboard('${room.url}')" class="btn" style="padding: 4px 10px; font-size: 11px;">Join</button>
+                    </div>
+                </div>
+                
+                <div style="display: flex; gap: 8px;">
+                    <button onclick="closeCurrentRoom()" class="btn btn-danger" style="flex: 1; font-size: 11px;">Close Room</button>
+                </div>
+            </div>
+        `,
+        )
+        .join(""); 
+    } catch (error) {
+      console.error("Failed to refresh rooms:", error);
+      setLoadingButton(btn, false);
+    } finally {
+      setLoadingButton(btn, false);
+    }
+}
+function restoreRoom() {
+  const saved = localStorage.getItem("roominfo");
+  if (!saved) return;
+
+  const room = JSON.parse(saved); 
+
+  window.currentRoomId = room.id;
+  renderHostRoom(room);
+}
+restoreRoom();
 
 // Copy URL to clipboard
 function copyToClipboard(text) {
@@ -565,49 +699,6 @@ async function closeCurrentRoom() {
     }
 }
 
-// Refresh active rooms list
-async function refreshRooms() {
-    const roomsList = document.getElementById('roomsList');
-    
-    // If user is hosting, don't overwrite their room display
-    if (window.currentRoomId) return;
-    
-    roomsList.innerHTML = `
-        <div style="text-align: center; color: var(--text-muted); padding: 20px;">
-            <p style="font-size: 12px;">Scanning...</p>
-        </div>
-    `;
-    
-    try {
-        const rooms = await window.electronAPI.getRooms();
-        
-        if (rooms.length === 0) {
-            roomsList.innerHTML = `
-                <div style="text-align: center; color: var(--text-muted); padding: 20px;">
-                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom: 10px; opacity: 0.3;">
-                        <circle cx="11" cy="11" r="8"/>
-                        <path d="M21 21l-4.35-4.35"/>
-                    </svg>
-                    <p style="font-size: 12px;">No active sessions found</p>
-                </div>
-            `;
-            return;
-        }
-        
-        // Render found rooms
-        roomsList.innerHTML = rooms.map(room => `
-            <div style="padding: 12px; border-bottom: 1px solid var(--border);">
-                <div style="font-size: 12px; font-weight: 600;">${room.host.playerName}</div>
-                <div style="font-size: 11px; color: var(--text-muted);">${room.host.map} • ${room.playerCount} players</div>
-                <code style="font-size: 10px; color: var(--text-secondary);">${room.url}</code>
-            </div>
-        `).join('');
-        
-    } catch (error) {
-        console.error('Failed to refresh rooms:', error);
-    }
-}
-
 // Close modal handlers
 document.getElementById('hostModal').addEventListener('click', function(e) {
     if (e.target === this) closeHostModal();
@@ -616,8 +707,9 @@ document.getElementById('hostModal').addEventListener('click', function(e) {
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') closeHostModal();
 });
-
 /* end host */
+
+/* add game */
 async function addGame() {
     if (!isOwnerLoggedIn) { showToast('Owner login required', 'error'); return; }
     const title = document.getElementById('gameTitle').value.trim();
@@ -813,4 +905,22 @@ async function checkAllUpdates() {
         console.error('Bulk update check failed:', error);
         showToast('Update check failed', 'error');
     }
+}
+function setLoadingButton(btn, loading, loadingText = "Loading...") {
+  if (!btn) return;
+
+  if (loading) {
+    btn.dataset.originalHtml = btn.innerHTML;
+    btn.disabled = true;
+
+    btn.innerHTML = `
+            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" class="spin">
+                <path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/>
+            </svg>
+            ${loadingText}
+        `;
+  } else {
+    btn.disabled = false;
+    btn.innerHTML = btn.dataset.originalHtml || btn.innerHTML;
+  }
 }

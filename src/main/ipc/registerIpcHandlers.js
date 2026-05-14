@@ -74,7 +74,7 @@ function registerIpcHandlers({ ipcMain, store, trackingService, launchService, d
     });
 
    // Room hosting handlers
-    ipcMain.handle('create-room', async (event, roomData) => {
+    ipcMain.handle('create-room', async (event, roomData) => { 
         return hostService.createRoom(roomData);
     });
 
