@@ -1,10 +1,14 @@
-const { BrowserWindow } = require('electron');
-const { createBrowserWindowOptions } = require('./config/windowConfig');
+const { BrowserWindow, app } = require("electron");
+const path = require("path");
+const { createBrowserWindowOptions } = require("./config/windowConfig");
 
-function createWindow(rootDir) {
-    const mainWindow = new BrowserWindow(createBrowserWindowOptions(rootDir));
-    mainWindow.loadFile('index.html');
-    return mainWindow;
+function createWindow() {
+  const mainWindow = new BrowserWindow(createBrowserWindowOptions());
+
+  // ✅ FIX: production-safe path
+  mainWindow.loadFile(path.join(app.getAppPath(), "index.html"));
+
+  return mainWindow;
 }
 
 module.exports = { createWindow };

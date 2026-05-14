@@ -69,14 +69,15 @@ function createHostService() {
             const roomId = `room-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
             
             const hostInfo = {
-                pcName: os.hostname(),
-                localIP: getLocalIP(),
-                playerName: roomData.playerName,
-                map: roomData.map,
-                mapname: roomData.mapname,
-                gameId: roomData.gameId,
-                port: null,
-                createdAt: new Date().toISOString()
+              hostId: roomData.hostId,
+              pcName: os.hostname(),
+              localIP: getLocalIP(),
+              playerName: roomData.playerName,
+              map: roomData.map,
+              mapname: roomData.mapname,
+              gameId: roomData.gameId,
+              port: null,
+              createdAt: new Date().toISOString(),
             }; 
             
             const { server, port, url } = createRoomServer(roomId, hostInfo);

@@ -16,9 +16,9 @@ document.addEventListener('DOMContentLoaded', () => {
     bindWindowControls();
     bindCrudControls();
     loadGames();
+    loadMaps();
     // Check for updates every 5 minutes
-    setInterval(checkForUpdates, 5 * 60 * 1000);
-    // Also check on load
+    setInterval(checkForUpdates, 5 * 60 * 1000); 
     setTimeout(checkForUpdates, 2000);
 });
 
@@ -207,9 +207,7 @@ async function launchGameById(gameId) {
     // If playing another game, stop it first
     if (currentlyPlaying) {
         await stopPlaying();
-    }
-
-    console.log(game);
+    } 
 
     if (game.exePath && game.exePath.trim() !== '') {
         showToast(`Launching ${game.title}...`, 'success');
@@ -219,7 +217,7 @@ async function launchGameById(gameId) {
 
         // Launch with process monitoring (pass gameId)
         if (window.electronAPI && window.electronAPI.launchGame) {
-            window.electronAPI.launchGame(game.id, game.launchMethod, game.appId);
+            window.electronAPI.launchGame(game.id, game.launchMethod, game.appId, game.title);
         } else {
             showToast(`Would launch: ${game.exePath}`, 'info');
             console.log('Launching:', game.exePath);
@@ -410,14 +408,7 @@ function logout() {
     document.getElementById('addGameNav').style.display = 'none';
     applyFilters();
     showToast('Logged out', 'info');
-}
-
-function getMyIdentity() {
-  return {
-    ip: cachedLocalIP, // or from preload
-    pc: require("os").hostname?.(), // renderer-safe alternative if exposed
-  };
-}
+} 
 
 function openAddGameModal() {
     if (!isOwnerLoggedIn) { showToast('Owner login required', 'error'); return; }
@@ -441,9 +432,7 @@ async function openHostModal(game) {
     const savedRoom = localStorage.getItem("roominfo");
 
     if (savedRoom) {
-      const room = JSON.parse(savedRoom);
-
-      console.log("Restored room:", room);
+      const room = JSON.parse(savedRoom); 
 
       // example restore UI
       document.getElementById("hostPlayerName").value = room.host.playerName;
@@ -523,6 +512,7 @@ async function createRoom() {
         setLoadingButton(btn, true, "Creating...");
 
         const selectedMap = cachedMaps.find((m) => m.value === map)?.label; 
+        const hostId = getOrCreateHostId();
         await new Promise((r) => setTimeout(r, 1000));
 
         // Call Electron main process to create room
@@ -531,6 +521,7 @@ async function createRoom() {
           playerName,
           map,
           mapname: selectedMap,
+          hostId,
         });
         
         if (result.success) {
@@ -541,6 +532,14 @@ async function createRoom() {
             
             // Show room info in the Active Rooms section
             renderHostRoom(room);
+
+            await window.electronAPI.launchGameAsHost({
+                gameId: currentHostGame.id,
+                exePath: currentHostGame.exePath,
+                title: currentHostGame.title,
+                map,
+                playerName,
+            });
             
             showToast(`Room created! ${room.url}`, 'success');
             
@@ -557,7 +556,9 @@ async function createRoom() {
 // Display the hosted room in Active Rooms section
 function renderHostRoom(room) {
     const roomsList = document.getElementById('roomsList');
-    
+    const myHostId = localStorage.getItem("hostId");
+    const isOwner = room.host.hostId === myHostId;
+     
     roomsList.innerHTML = `
         <div style="padding: 16px; width: 100%;">
             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
@@ -578,7 +579,12 @@ function renderHostRoom(room) {
                 <div style="font-size: 10px; color: var(--text-muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;">Room URL</div>
                 <div style="display: flex; gap: 8px; align-items: center;">
                     <code style="font-size: 12px; color: var(--text-primary); flex: 1; overflow: hidden; text-overflow: ellipsis;">${room.url}</code>
-                    <button onclick="copyToClipboard('${room.url}')" class="btn" style="padding: 4px 10px; font-size: 11px;">Join</button>
+                    ${
+                      !isOwner
+                        ? `<button  class="btn" style="padding: 4px 10px; font-size: 11px;">Join</button>`
+                        : `
+                        <button class="btn" style="padding: 4px 10px; font-size: 11px;" onclick="copyToClipboard('${room.url}')">Copy</button>`
+                    }
                 </div>
             </div>
             
@@ -656,11 +662,11 @@ async function refreshRooms() {
       setLoadingButton(btn, false);
     }
 }
-function restoreRoom() {
+function restoreRoom() { 
   const saved = localStorage.getItem("roominfo");
   if (!saved) return;
 
-  const room = JSON.parse(saved); 
+  const room = JSON.parse(saved);   
 
   window.currentRoomId = room.id;
   renderHostRoom(room);
@@ -692,6 +698,9 @@ async function closeCurrentRoom() {
                 <p style="font-size: 12px;">Click "Refresh Rooms" to scan for active sessions</p>
             </div>
         `;
+
+        localStorage.removeItem("roominfo");
+        localStorage.removeItem("hostId", hostId);
         
         showToast('Room closed', 'info');
     } catch (error) {
@@ -707,6 +716,17 @@ document.getElementById('hostModal').addEventListener('click', function(e) {
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') closeHostModal();
 });
+
+function getOrCreateHostId() {
+  let hostId = localStorage.getItem("hostId");
+
+  if (!hostId) {
+    hostId = crypto.randomUUID();
+    localStorage.setItem("hostId", hostId);
+  }
+
+  return hostId;
+}
 /* end host */
 
 /* add game */

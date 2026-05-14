@@ -1,7 +1,9 @@
 const fs = require('fs');
 const path = require('path');
+const os = require("os");
 const { shell } = require('electron');
 const { GAME_PATTERNS } = require('../config/gamePatterns');
+const { exec, spawn } = require("child_process");
 
 function createGameLaunchService({ store, getMainWindow, detectionService, processService, trackingService }) {
     function launchDirect(exePath, gameId) {
@@ -86,54 +88,118 @@ function createGameLaunchService({ store, getMainWindow, detectionService, proce
         }
     }
 
-    async function launchGame(gameId, launchMethod, appId) {
-        const game = store.findGame(gameId);
-        if (!game) {
-            console.error('Game not found:', gameId);
-            return;
+    async function launchGame(gameId, launchMethod, appId, title) {
+        console.log(title);
+      const game = store.findGame(gameId);
+      if (!game) {
+        console.error("Game not found:", gameId);
+        return;
+      }
+
+      try {
+        switch (launchMethod || game.launchMethod) {
+          case "roblox":
+            await launchRoblox(gameId);
+            break;
+          case "steam":
+            launchSteam(appId || game.appId, gameId);
+            break;
+          case "epic":
+            launchEpic(appId || game.appId, gameId);
+            break;
+          case "auto_detect":
+            await launchAutoDetect(game, gameId);
+            break;
+          case "direct":
+          default:
+            if (game.exePath && fs.existsSync(game.exePath)) {
+              launchDirect(game.exePath, gameId);
+            } else if (
+              game.detectedExePath &&
+              fs.existsSync(game.detectedExePath)
+            ) {
+              launchDirect(game.detectedExePath, gameId);
+            } else {
+              await launchAutoDetect(game, gameId);
+            }
+            break;
+        }
+      } catch (error) {
+        console.error("Launch failed:", error);
+        const mainWindow = getMainWindow();
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send("launch-failed", {
+            gameId,
+            error: error.message,
+          });
+        }
+      }
+    }
+
+    async function launchGameAsHost(game) { 
+      if (!game.exePath) {
+        throw new Error("Game executable missing");
+      }
+
+      const exe = game.exePath;
+
+      let args = [];
+
+      // LEFT 4 DEAD 2 HOST SUPPORT
+      if (game.title.toLowerCase().includes("left 4 dead 2")) {
+        const map = game.map || "c1m1_hotel";
+        const username = game.playerName || "Player1";
+
+        setGoldbergUsername(username);
+
+        args = ["-console", "+sv_lan", "1", "+map", map, "+name", username];
+      }
+
+      const processName = path.basename(exe);
+
+      trackingService.startProcessMonitor(game.gameId, processName, exe); 
+
+      spawn(exe, args, {
+        detached: true,
+        stdio: "ignore",
+      }).unref();
+
+      return {
+        success: true,
+      };
+    }
+    async function setGoldbergUsername(username) {
+      try {
+        const savePath = path.join(
+          os.homedir(),
+          "AppData",
+          "Roaming", 
+          "Goldberg SteamEmu Saves",
+          "settings",
+        );
+
+        if (!fs.existsSync(savePath)) {
+          fs.mkdirSync(savePath, { recursive: true });
         }
 
-        try {
-            switch (launchMethod || game.launchMethod) {
-                case 'roblox':
-                    await launchRoblox(gameId);
-                    break;
-                case 'steam':
-                    launchSteam(appId || game.appId, gameId);
-                    break;
-                case 'epic':
-                    launchEpic(appId || game.appId, gameId);
-                    break;
-                case 'auto_detect':
-                    await launchAutoDetect(game, gameId);
-                    break;
-                case 'direct':
-                default:
-                    if (game.exePath && fs.existsSync(game.exePath)) {
-                        launchDirect(game.exePath, gameId);
-                    } else if (game.detectedExePath && fs.existsSync(game.detectedExePath)) {
-                        launchDirect(game.detectedExePath, gameId);
-                    } else {
-                        await launchAutoDetect(game, gameId);
-                    }
-                    break;
-            }
-        } catch (error) {
-            console.error('Launch failed:', error);
-            const mainWindow = getMainWindow();
-            if (mainWindow && !mainWindow.isDestroyed()) {
-                mainWindow.webContents.send('launch-failed', { gameId, error: error.message });
-            }
-        }
+        const accountFile = path.join(savePath, "account_name.txt");
+
+        fs.writeFileSync(accountFile, username);
+
+        console.log("Goldberg username updated:", username);
+      } catch (err) {
+        console.error("Failed to set Goldberg username:", err);
+      }
     }
 
     return {
-        launchDirect,
-        launchRoblox,
-        launchSteam,
-        launchEpic,
-        launchAutoDetect,
-        launchGame
+      launchDirect,
+      launchRoblox,
+      launchSteam,
+      launchEpic,
+      launchAutoDetect,
+      launchGame,
+      launchGameAsHost,
     };
 }
 
