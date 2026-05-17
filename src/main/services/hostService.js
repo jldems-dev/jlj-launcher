@@ -117,7 +117,7 @@ function createHostService() {
             return rooms;
         },
 
-        getRoomFromLink(){
+        /* getRoomFromLink(){
             const localIP = getLocalIP();
 
             // example: 192.168.1.
@@ -162,7 +162,7 @@ function createHostService() {
 
             return found;
         }
-
+ */
         closeRoom(roomId) {
             const room = activeRooms.get(roomId);
             if (room) {
