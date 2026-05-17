@@ -10,6 +10,10 @@ function registerIpcHandlers({
   updateService,
   getMainWindow,
 }) {
+  ipcMain.handle("check-for-updates", () => {
+    autoUpdater.checkForUpdates();
+  });
+  
   ipcMain.handle("db-get-games", () => {
     return store.getGames();
   });

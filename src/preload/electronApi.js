@@ -5,6 +5,11 @@ contextBridge.exposeInMainWorld("electronAPI", {
   maximize: () => ipcRenderer.send("window-maximize"),
   close: () => ipcRenderer.send("window-close"),
 
+  onUpdateStatus: (cb) =>
+    ipcRenderer.on("update-status", (_, data) => cb(data)),
+  onUpdateProgress: (cb) =>
+    ipcRenderer.on("update-progress", (_, data) => cb(data)),
+
   launchGame: (gameId, launchMethod, appId, title) =>
     ipcRenderer.send("launch-game", gameId, launchMethod, appId, title),
   launchGameAsHost: (game) => ipcRenderer.send("launch-game-as-host", game),
@@ -20,6 +25,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.on("game-stopped", (_, data) => callback(data)),
   onLaunchFailed: (callback) =>
     ipcRenderer.on("launch-failed", (_, data) => callback(data)),
+
   removeAllListeners: (channel) => ipcRenderer.removeAllListeners(channel),
 
   getGames: () => ipcRenderer.invoke("db-get-games"),

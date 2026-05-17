@@ -9,8 +9,8 @@ function createBrowserWindowOptions() {
     height: 900,
     minWidth: 1000,
     minHeight: 600,
-    /* frame: false,
-    titleBarStyle: "hidden", */
+    frame: false,
+    titleBarStyle: "hidden",
     backgroundColor: "#050505",
 
     icon: path.join(root, "assets", "images", "favicon-512x512.png"),

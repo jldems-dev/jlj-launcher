@@ -11,16 +11,65 @@ let listmap = null;
 // Play time tracking
 let currentlyPlaying = null; // { id, startTime, timerInterval }
 let playTimerInterval = null;
+let updateListenerAttached = false;
+ 
 
 document.addEventListener('DOMContentLoaded', () => {
     bindWindowControls();
-    bindCrudControls();
+    bindCrudControls(); 
     loadGames();
     loadMaps();
     // Check for updates every 5 minutes
+    setTimeout(() => {
+      updateAppStatus();
+    }, 0);
     setInterval(checkForUpdates, 5 * 60 * 1000); 
     setTimeout(checkForUpdates, 2000);
 });
+
+
+function updateAppStatus() {
+  if (updateListenerAttached) return;
+  updateListenerAttached = true;
+
+  const panel = document.getElementById("updatePanel");
+  const bar = document.getElementById("updateProgressBar");
+  const percentText = document.getElementById("updatePercent");
+  const speedText = document.getElementById("updateSpeed");
+  const statusText = document.getElementById("updateStatusText");
+
+  if (!window.electronAPI) return;
+
+  window.electronAPI.onUpdateStatus((data) => {
+    if (data.status === "available") {
+      panel.classList.remove("hidden");
+      statusText.textContent = "Downloading update...";
+    }
+
+    if (data.status === "ready") {
+      statusText.textContent = "Update ready. Restart app.";
+      percentText.textContent = "100%";
+      bar.style.width = "100%";
+    }
+
+    if (data.status === "error") {
+      statusText.textContent = "Update failed: " + data.message;
+    }
+  });
+
+  window.electronAPI.onUpdateProgress((data) => {
+    const percent = data.percent || 0;
+    const speed = data.speed || 0;
+
+    panel.classList.remove("hidden");
+
+    bar.style.width = percent + "%";
+    percentText.textContent = percent + "%";
+
+    // Convert bytes/sec → KB/s
+    speedText.textContent = Math.round(speed / 1024) + " KB/s";
+  });
+}
 
 function bindWindowControls() {
     document.getElementById('windowMinimizeButton')?.addEventListener('click', minimizeWindow);
@@ -128,20 +177,7 @@ function renderGames(gamesToRender) {
                 <div class="game-meta"><span>${game.genre}</span><span>${formatHours(game.totalMinutes)}</span></div>
                 <div class="game-tags"><span class="tag">${game.genre}</span>${game.status === "installed" ? '<span class="tag">Installed</span>' : ""}${game.isFavorite ? '<span class="tag">★ Favorite</span>' : ""}${game.status === "update" ? '<span class="tag" style="color:#ff6b6b;border-color:rgba(255,50,50,0.3)">Update Available</span>' : ""}</div>
             </div>
-            ${
-              game.HostSetup == "yes"
-                ? `
-            <button class="btn" style="padding: 10px 14px; width: 100%; border-radius: 0;"
-            onclick='openHostModal(${JSON.stringify(JSON.stringify(game))})'>
-                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-                     <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-                    <path d="M2 17l10 5 10-5"/>
-                    <path d="M2 12l10 5 10-5"/>
-                </svg>
-                Host Game
-            </button>  `
-                : ""
-            }
+           
            
             ${
               isOwnerLoggedIn
@@ -156,7 +192,20 @@ function renderGames(gamesToRender) {
         </div>
     `;}).join('');
 }
-
+/* ${
+    game.HostSetup == "yes"
+    ? `
+    <button class="btn" style="padding: 10px 14px; width: 100%; border-radius: 0;"
+    onclick='openHostModal(${JSON.stringify(JSON.stringify(game))})'>
+        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+            <path d="M2 17l10 5 10-5"/>
+            <path d="M2 12l10 5 10-5"/>
+        </svg>
+        Host Game
+    </button>  `
+        : ""
+} */
 function changeRows(rows) {
     currentRows = parseInt(rows);
     const grid = document.getElementById('gamesGrid');
@@ -609,7 +658,6 @@ async function refreshRooms() {
     try {
       const rooms = await window.electronAPI.getRooms();
 
-      
 
       if (rooms.length === 0) {
         roomsList.innerHTML = `

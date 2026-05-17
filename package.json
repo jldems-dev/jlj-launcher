@@ -11,6 +11,13 @@
   "build": {
     "appId": "com.jljgaminghouse.menu",
     "productName": "JLJGAMINGHOUSE",
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "jldems-dev",
+        "repo": "jlj-launcher"
+      }
+    ],
     "asar": false,
     "directories": {
       "output": "dist"

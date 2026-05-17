@@ -11,7 +11,7 @@ const { createGameTrackingService } = require("./services/gameTrackingService");
 const { createGameLaunchService } = require("./services/gameLaunchService");
 const { createHostService } = require("./services/hostService");
 const { createGameUpdateService } = require("./services/gameUpdateService");
-const { registerIpcHandlers } = require("./ipc/registerIpcHandlers");
+const { registerIpcHandlers } = require("./ipc/registerIpcHandlers"); 
 
 function bootstrap() {
   let mainWindow;
@@ -20,6 +20,55 @@ function bootstrap() {
 
   const store = createGameStore(app);
 
+  const { autoUpdater } = require("electron-updater");
+
+  function setupAutoUpdates(mainWindow) {
+    autoUpdater.autoDownload = true;
+    autoUpdater.autoInstallOnAppQuit = true;
+
+    autoUpdater.on("checking-for-update", () => {
+      mainWindow.webContents.send("update-status", {
+        status: "checking",
+      });
+    });
+
+    autoUpdater.on("update-available", (info) => {
+      mainWindow.webContents.send("update-status", {
+        status: "available",
+        version: info.version,
+      });
+    });
+
+    autoUpdater.on("update-not-available", () => {
+      mainWindow.webContents.send("update-status", {
+        status: "none",
+      });
+    });
+
+    autoUpdater.on("download-progress", (progress) => {
+      mainWindow.webContents.send("update-progress", {
+        percent: progress.percent.toFixed(2),
+        speed: progress.bytesPerSecond,
+      });
+    });
+
+    autoUpdater.on("update-downloaded", () => {
+      mainWindow.webContents.send("update-status", {
+        status: "ready",
+      });
+    });
+
+    autoUpdater.on("error", (err) => {
+      console.error("Auto update error:", err);
+      mainWindow.webContents.send("update-status", {
+        status: "error",
+        message: err.message,
+      });
+    });
+
+    // 🔥 START CHECK
+    autoUpdater.checkForUpdates();
+  }
   const updateService = createGameUpdateService({
     store,
   });
@@ -54,6 +103,7 @@ function bootstrap() {
   app.whenReady().then(() => {
     store.init();
     mainWindow = createWindow();
+    setupAutoUpdates(mainWindow); 
   });
 
   app.on("window-all-closed", () => {
@@ -66,7 +116,7 @@ function bootstrap() {
     if (BrowserWindow.getAllWindows().length === 0) {
       mainWindow = createWindow();
     }
-  });
+  }); 
 }
 
 module.exports = { bootstrap };
