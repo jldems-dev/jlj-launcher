@@ -20,52 +20,6 @@ function getRandomPort() {
     return Math.floor(Math.random() * (9000 - 3000 + 1)) + 3000;
 }
 
-async function getRoomFromLink() {
-    const localIP = await getLocalIP();
-
-    // Example: 192.168.1.
-    const subnet = localIP.split('.').slice(0, 3).join('.') + '.';
-
-    const found = [];
-
-    // DO NOT scan thousands of ports
-    // Use only known game/server ports
-    const ports = [3000, 8080, 5000];
-
-    const promises = [];
-
-    for (let i = 1; i < 255; i++) {
-        const ip = subnet + i;
-
-        for (const port of ports) {
-            promises.push(
-                fetch(`http://${ip}:${port}/room`, {
-                    signal: AbortSignal.timeout(500)
-                })
-                .then(res => {
-                    if (!res.ok) return null;
-                    return res.json();
-                })
-                .then(data => {
-                    if (data?.room) {
-                        found.push({
-                            id: data.room.id,
-                            host: data.room.host,
-                            playerCount: 0,
-                            url: data.room.url
-                        });
-                    }
-                })
-                .catch(() => null)
-            );
-        }
-    }
-
-    await Promise.all(promises);
-
-    return found;
-}
-
 // Active rooms storage
 const activeRooms = new Map();
 
@@ -111,70 +65,114 @@ function createHostService() {
     }
 
     return {
-        createRoom(roomData) { 
-            const roomId = `room-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
-            
-            const hostInfo = {
-              hostId: roomData.hostId,
-              pcName: os.hostname(),
-              localIP: getLocalIP(),
-              playerName: roomData.playerName,
-              map: roomData.map,
-              mapname: roomData.mapname,
-              gameId: roomData.gameId,
-              port: null,
-              createdAt: new Date().toISOString(),
-            }; 
-            
-            const { server, port, url } = createRoomServer(roomId, hostInfo);
-            
-            hostInfo.port = port;
-            hostInfo.url = url;
-            
-            activeRooms.set(roomId, {
-                id: roomId,
-                server,
-                hostInfo,
-                players: []
-            });
-            
-            return {
-                success: true,
-                room: {
-                    id: roomId,
-                    url,
-                    host: hostInfo
-                }
-            };
-        },
+      createRoom(roomData) {
+        const roomId = `room-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
 
-        async getRooms() {
-            const rooms = [];
-            for (const [id, room] of activeRooms) {
-                rooms.push({
-                    id: room.id,
-                    host: room.hostInfo,
-                    playerCount: room.players.length,
-                    url: room.hostInfo.url
-                });
-            }
+        const hostInfo = {
+          hostId: roomData.hostId,
+          pcName: os.hostname(),
+          localIP: getLocalIP(),
+          playerName: roomData.playerName,
+          map: roomData.map,
+          mapname: roomData.mapname,
+          gameId: roomData.gameId,
+          port: null,
+          createdAt: new Date().toISOString(),
+        };
 
-            if(rooms.length === 0) {
-                rooms = await getRoomFromLink();
-            } 
+        const { server, port, url } = createRoomServer(roomId, hostInfo);
 
-            return rooms;
-        },
+        hostInfo.port = port;
+        hostInfo.url = url;
 
-        closeRoom(roomId) {
-            const room = activeRooms.get(roomId);
-            if (room) {
-                room.server.close();
-                activeRooms.delete(roomId);
-                return { success: true };
-            }
-            return { success: false, error: 'Room not found' };
+        activeRooms.set(roomId, {
+          id: roomId,
+          server,
+          hostInfo,
+          players: [],
+        });
+
+        return {
+          success: true,
+          room: {
+            id: roomId,
+            url,
+            host: hostInfo,
+          },
+        };
+      },
+
+      async getRooms() {
+        let rooms = [];
+
+        for (const [id, room] of activeRooms) {
+          rooms.push({
+            id: room.id,
+            host: room.hostInfo,
+            playerCount: room.players.length,
+            url: room.hostInfo.url,
+          });
         }
+
+        if (rooms.length === 0) {
+          rooms = await this.getRoomFromLink();
+        }
+
+        return rooms;
+      },
+
+      async getRoomFromLink() {
+        const localIP = getLocalIP();
+        const subnet = localIP.split(".").slice(0, 3).join(".") + ".";
+
+        const found = [];
+        const ports = [3000, 8080, 5000];
+
+        const controller = new AbortController();
+        const timeout = 500;
+
+        const promises = [];
+
+        for (let i = 1; i < 255; i++) {
+          const ip = subnet + i;
+
+          for (const port of ports) {
+            promises.push(
+              fetch(`http://${ip}:${port}/room`, {
+                signal: AbortSignal.timeout
+                  ? AbortSignal.timeout(timeout)
+                  : controller.signal,
+              })
+                .then((res) => (res.ok ? res.json() : null))
+                .then((data) => {
+                  if (data?.room) {
+                    found.push({
+                      id: data.room.id,
+                      host: data.room.host,
+                      playerCount: 0,
+                      url: data.room.url,
+                    });
+                  }
+                })
+                .catch(() => null),
+            );
+          }
+        }
+
+        await Promise.all(promises);
+
+        return found;
+      },
+
+      closeRoom(roomId) {
+        const room = activeRooms.get(roomId);
+        if (room) {
+          room.server.close();
+          activeRooms.delete(roomId);
+          return { success: true };
+        }
+        return { success: false, error: "Room not found" };
+      },
     };
 }
 
