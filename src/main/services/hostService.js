@@ -102,7 +102,7 @@ function createHostService() {
             };
         },
 
-        getRooms() {
+        async getRooms() {
             const rooms = [];
             for (const [id, room] of activeRooms) {
                 rooms.push({
@@ -113,45 +113,48 @@ function createHostService() {
                 });
             }
 
-            console.log(rooms);
+            if(rooms.length === 0) {
+                rooms = await getRoomFromLink();
+            } 
+
             return rooms;
         },
 
-        /* getRoomFromLink(){
-            const localIP = getLocalIP();
+        async getRoomFromLink() {
+            const localIP = await getLocalIP();
 
-            // example: 192.168.1.
+            // Example: 192.168.1.
             const subnet = localIP.split('.').slice(0, 3).join('.') + '.';
 
             const found = [];
+
+            // DO NOT scan thousands of ports
+            // Use only known game/server ports
+            const ports = [3000, 8080, 5000];
+
             const promises = [];
 
             for (let i = 1; i < 255; i++) {
-
                 const ip = subnet + i;
 
-                // scan common ports only
-                for (let port = 3000; port <= 9000; port++) {
-
+                for (const port of ports) {
                     promises.push(
-
                         fetch(`http://${ip}:${port}/room`, {
                             signal: AbortSignal.timeout(500)
                         })
-                        .then((res) => res.ok ? res.json() : null)
-                        .then((data) => {
-
+                        .then(res => {
+                            if (!res.ok) return null;
+                            return res.json();
+                        })
+                        .then(data => {
                             if (data?.room) {
-
                                 found.push({
                                     id: data.room.id,
                                     host: data.room.host,
                                     playerCount: 0,
                                     url: data.room.url
                                 });
-
                             }
-
                         })
                         .catch(() => null)
                     );
@@ -161,8 +164,8 @@ function createHostService() {
             await Promise.all(promises);
 
             return found;
-        }
- */
+        },
+
         closeRoom(roomId) {
             const room = activeRooms.get(roomId);
             if (room) {
