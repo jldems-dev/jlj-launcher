@@ -609,6 +609,8 @@ async function refreshRooms() {
     try {
       const rooms = await window.electronAPI.getRooms();
 
+      
+
       if (rooms.length === 0) {
         roomsList.innerHTML = `
                 <div style="text-align: center; color: var(--text-muted); padding: 20px;">
@@ -621,8 +623,10 @@ async function refreshRooms() {
             `;
         return;
       }
+
+      renderHostRoom(rooms);
  
-      // Render found rooms
+      /* // Render found rooms
       roomsList.innerHTML = rooms
         .map(
           (room) => ` 
@@ -655,7 +659,7 @@ async function refreshRooms() {
             </div>
         `,
         )
-        .join(""); 
+        .join("");  */
     } catch (error) {
       console.error("Failed to refresh rooms:", error);
       setLoadingButton(btn, false);

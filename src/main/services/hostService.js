@@ -26,7 +26,7 @@ const activeRooms = new Map();
 function createHostService() {
     
     function createRoomServer(roomId, hostInfo) {
-        const port = getRandomPort();
+        const port = 3000;
         const localIP = getLocalIP();
         
         const server = http.createServer((req, res) => {
@@ -126,11 +126,7 @@ function createHostService() {
         const subnet = localIP.split(".").slice(0, 3).join(".") + ".";
 
         const found = [];
-        const ports = [3000, 8080, 5000];
-
-        const controller = new AbortController();
-        const timeout = 500;
-
+        const ports = 3000; 
         const promises = [];
 
         for (let i = 1; i < 255; i++) {
@@ -139,9 +135,7 @@ function createHostService() {
           for (const port of ports) {
             promises.push(
               fetch(`http://${ip}:${port}/room`, {
-                signal: AbortSignal.timeout
-                  ? AbortSignal.timeout(timeout)
-                  : controller.signal,
+                signal: AbortSignal.timeout(7000),
               })
                 .then((res) => (res.ok ? res.json() : null))
                 .then((data) => {
