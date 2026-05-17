@@ -7,6 +7,7 @@ function registerIpcHandlers({
   launchService,
   detectionService,
   hostService, 
+  updateService,
   getMainWindow,
 }) {
   ipcMain.handle("db-get-games", () => {
@@ -70,6 +71,10 @@ function registerIpcHandlers({
 
   ipcMain.handle("scan-for-games", async () => {
     return detectionService.scanForInstalledGames();
+  });
+
+  ipcMain.handle("check-game-updates", async () => {
+    return await updateService.checkAllGames();
   });
 
   ipcMain.on("open-external", (event, url) => {

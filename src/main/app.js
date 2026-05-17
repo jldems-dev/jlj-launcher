@@ -10,7 +10,7 @@ const processService = require("./services/processService");
 const { createGameTrackingService } = require("./services/gameTrackingService");
 const { createGameLaunchService } = require("./services/gameLaunchService");
 const { createHostService } = require("./services/hostService");
-
+const { createGameUpdateService } = require("./services/gameUpdateService");
 const { registerIpcHandlers } = require("./ipc/registerIpcHandlers");
 
 function bootstrap() {
@@ -19,6 +19,10 @@ function bootstrap() {
   const getMainWindow = () => mainWindow;
 
   const store = createGameStore(app);
+
+  const updateService = createGameUpdateService({
+    store,
+  });
 
   const trackingService = createGameTrackingService({
     store,
@@ -43,6 +47,7 @@ function bootstrap() {
     launchService,
     detectionService,
     hostService,
+    updateService,
     getMainWindow,
   });
 

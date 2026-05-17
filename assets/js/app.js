@@ -89,21 +89,17 @@ function formatPlayTime(minutes) {
     return `${h}h ${m}m`;
 }
 
-function checkForUpdates() {
-    // Simulate checking for updates by comparing version fields
-    // In real app, this would check a server or file hash
-    let updatesFound = 0;
-    games.forEach(game => {
-        if (game.version && game.latestVersion && game.version !== game.latestVersion) {
-            if (game.status !== 'update') {
-                game.status = 'update';
-                updatesFound++;
-            }
-        }
-    });
-    if (updatesFound > 0) {
+async function checkForUpdates() { 
+    const result = await window.electronAPI.checkGameUpdates(); 
+
+    games = result.games;
+
+    if (result.updatesFound > 0) {
         applyFilters();
-        showToast(`${updatesFound} game${updatesFound > 1 ? 's' : ''} need${updatesFound === 1 ? 's' : ''} update`, 'info');
+        showToast(
+            `${result.updatesFound} game(s) need update`,
+            "info"
+        );
     }
 }
 
@@ -126,7 +122,6 @@ function renderGames(gamesToRender) {
                 ${statusBadge}
                 <div class="play-btn-overlay"><svg width="20" height="20" fill="black" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div>
                 <div class="game-overlay"><div style="font-size: 11px; color: var(--text-muted); margin-bottom: 3px;">${formatTimeAgo(game.lastPlayedTimestamp)}</div><div style="font-size: 13px; font-weight: 600;">${formatHours(game.totalMinutes)} played</div></div>
-                ${game.status === "update" ? '<div class="download-progress"><div class="download-progress-bar" style="width: 65%"></div></div>' : ""}
             </div>
             <div class="game-info">
                 <h4 class="game-title">${game.title}</h4>
@@ -234,6 +229,12 @@ async function launchGameById(gameId) {
                     lastPlayedTimestamp: now,
                     lastPlayed: 'Just now'
                 });
+                if(game.status == "update"){
+                    await window.electronAPI.updateGame(game.id, {
+                      status: "installed",
+                      version: game.setLatestVersion,
+                    }); 
+                }
             }
             applyFilters();
         } catch (e) {

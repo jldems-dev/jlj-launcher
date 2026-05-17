@@ -42,141 +42,165 @@ function readJsonFile(filePath) {
 }
 
 function createGameStore(app, rootDir = process.cwd()) {
-    let dbPath;
-    let data = { games: [], owner: { ...OWNER_DEFAULTS } };
+  let dbPath;
+  let data = { games: [], owner: { ...OWNER_DEFAULTS } };
 
-    function init() {
-        dbPath = path.join(rootDir, 'jljgaminghouse.json');
-        const legacyDbPath = path.join(app.getPath('userData'), 'jljgaminghouse.json');
+  function init() {
+    dbPath = path.join(rootDir, "jljgaminghouse.json");
+    const legacyDbPath = path.join(
+      app.getPath("userData"),
+      "jljgaminghouse.json",
+    );
 
-        if (fs.existsSync(dbPath)) {
-            try {
-                data = readJsonFile(dbPath);
-                if (data.games.length === 0 && fs.existsSync(legacyDbPath)) {
-                    const legacyData = readJsonFile(legacyDbPath);
-                    if (legacyData.games.length > 0) {
-                        data = legacyData;
-                    }
-                }
-            } catch (e) {
-                console.error('Failed to parse JSON, creating new:', e);
-                data = createDefaults();
-            }
-        } else if (fs.existsSync(legacyDbPath)) {
-            try {
-                data = readJsonFile(legacyDbPath);
-            } catch (e) {
-                console.error('Failed to parse legacy JSON, creating new:', e);
-                data = createDefaults();
-            }
-        } else {
-            data = createDefaults();
+    if (fs.existsSync(dbPath)) {
+      try {
+        data = readJsonFile(dbPath);
+        if (data.games.length === 0 && fs.existsSync(legacyDbPath)) {
+          const legacyData = readJsonFile(legacyDbPath);
+          if (legacyData.games.length > 0) {
+            data = legacyData;
+          }
         }
-
-        save();
+      } catch (e) {
+        console.error("Failed to parse JSON, creating new:", e);
+        data = createDefaults();
+      }
+    } else if (fs.existsSync(legacyDbPath)) {
+      try {
+        data = readJsonFile(legacyDbPath);
+      } catch (e) {
+        console.error("Failed to parse legacy JSON, creating new:", e);
+        data = createDefaults();
+      }
+    } else {
+      data = createDefaults();
     }
 
-    function save() {
-        try {
-            fs.mkdirSync(path.dirname(dbPath), { recursive: true });
-            fs.writeFileSync(dbPath, JSON.stringify(data, null, 2));
-            console.log(`Saved game data to ${dbPath}`);
-        } catch (e) {
-            console.error('Failed to save JSON:', e);
-            throw e;
-        }
-    }
+    save();
+  }
 
-    function getStorageInfo() {
-        return {
-            dbPath,
-            gameCount: data.games.length
-        };
+  function save() {
+    try {
+      fs.mkdirSync(path.dirname(dbPath), { recursive: true });
+      fs.writeFileSync(dbPath, JSON.stringify(data, null, 2));
+      console.log(`Saved game data to ${dbPath}`);
+    } catch (e) {
+      console.error("Failed to save JSON:", e);
+      throw e;
     }
+  }
 
-    function getGames() {
-        return data.games;
-    }
-
-    function findGame(gameId) {
-        return data.games.find(g => sameId(g.id, gameId));
-    }
-
-    function getNextId() {
-        if (data.games.length === 0) return 1;
-        const numericIds = data.games.map(g => Number(g.id)).filter(id => !Number.isNaN(id));
-        if (numericIds.length === 0) return 1;
-        return Math.max(...numericIds) + 1;
-    }
-
-    function addGame(game) {
-        const newGame = {
-            id: getNextId(),
-            title: game.title,
-            cover: game.cover,
-            genre: game.genre,
-            hours: game.hours || '0h',
-            totalMinutes: game.totalMinutes || 0,
-            status: game.status || 'installed',
-            lastPlayed: game.lastPlayed || 'Never',
-            lastPlayedTimestamp: game.lastPlayedTimestamp || null,
-            isFavorite: game.isFavorite || false,
-            exePath: game.exePath || '',
-            detectedExePath: game.detectedExePath || '',
-            launchMethod: game.launchMethod || 'direct',
-            HostSetup: game.HostSetup || 'no',
-            appId: game.appId || '',
-            version: game.version || '1.0.0',
-            latestVersion: game.latestVersion || '1.0.0'
-        }; 
-        data.games.unshift(newGame);
-        save();
-        return newGame;
-    }
-
-    function deleteGame(id) {
-        const beforeCount = data.games.length;
-        data.games = data.games.filter(g => !sameId(g.id, id));
-        save();
-        return data.games.length !== beforeCount;
-    }
-
-    function updateGame(id, updates) {
-        const index = data.games.findIndex(g => sameId(g.id, id));
-        if (index !== -1) {
-            data.games[index] = { ...data.games[index], ...updates };
-            normalizeGame(data.games[index]);
-            save();
-            return true;
-        }
-        return false;
-    }
-
-    function verifyOwner(username, password) {
-        return data.owner.username === username && data.owner.password === password;
-    }
-
-    function changePassword(currentPass, newPass) {
-        if (data.owner.password === currentPass) {
-            data.owner.password = newPass;
-            save();
-            return true;
-        }
-        return false;
-    }
-
+  function getStorageInfo() {
     return {
-        init,
-        save,
-        getGames,
-        findGame,
-        addGame,
-        deleteGame,
-        updateGame,
-        verifyOwner,
-        changePassword,
-        getStorageInfo
+      dbPath,
+      gameCount: data.games.length,
     };
+  }
+
+  function getGames() {
+    return data.games;
+  }
+
+  function findGame(gameId) {
+    return data.games.find((g) => sameId(g.id, gameId));
+  }
+
+  function getNextId() {
+    if (data.games.length === 0) return 1;
+    const numericIds = data.games
+      .map((g) => Number(g.id))
+      .filter((id) => !Number.isNaN(id));
+    if (numericIds.length === 0) return 1;
+    return Math.max(...numericIds) + 1;
+  }
+
+  function addGame(game) {
+    const newGame = {
+      id: getNextId(),
+      title: game.title,
+      cover: game.cover,
+      genre: game.genre,
+      hours: game.hours || "0h",
+      totalMinutes: game.totalMinutes || 0,
+      status: game.status || "installed",
+      lastPlayed: game.lastPlayed || "Never",
+      lastPlayedTimestamp: game.lastPlayedTimestamp || null,
+      isFavorite: game.isFavorite || false,
+      exePath: game.exePath || "",
+      detectedExePath: game.detectedExePath || "",
+      launchMethod: game.launchMethod || "direct",
+      HostSetup: game.HostSetup || "no",
+      appId: game.appId || "",
+      version: game.version || "1.0.0",
+      latestVersion: game.latestVersion || "1.0.0",
+    };
+    data.games.unshift(newGame);
+    save();
+    return newGame;
+  }
+
+  function deleteGame(id) {
+    const beforeCount = data.games.length;
+    data.games = data.games.filter((g) => !sameId(g.id, id));
+    save();
+    return data.games.length !== beforeCount;
+  }
+
+  function updateGame(id, updates) {
+    const index = data.games.findIndex((g) => sameId(g.id, id));
+    if (index !== -1) {
+      data.games[index] = { ...data.games[index], ...updates };
+      normalizeGame(data.games[index]);
+      save();
+      return true;
+    }
+    return false;
+  }
+
+  function verifyOwner(username, password) {
+    return data.owner.username === username && data.owner.password === password;
+  }
+
+  function changePassword(currentPass, newPass) {
+    if (data.owner.password === currentPass) {
+      data.owner.password = newPass;
+      save();
+      return true;
+    }
+    return false;
+  }
+
+  // 👇 ADD HERE
+  function setGameStatus(id, status) {
+    return updateGame(id, { status });
+  }
+
+  function setGameVersion(id, version) {
+    return updateGame(id, { version });
+  }
+
+  function setLatestVersion(id, latestVersion) {
+    return updateGame(id, { latestVersion });
+  }
+
+  return {
+    init,
+    save,
+    getGames,
+    findGame,
+    addGame,
+    deleteGame,
+    updateGame,
+
+    // 👇 ADD THESE
+    setGameStatus,
+    setGameVersion,
+    setLatestVersion,
+
+    verifyOwner,
+    changePassword,
+    getStorageInfo,
+  };
 }
 
 module.exports = { createGameStore };
