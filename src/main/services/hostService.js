@@ -132,25 +132,23 @@ function createHostService() {
         for (let i = 1; i < 255; i++) {
           const ip = subnet + i;
 
-          for (const port of ports) {
-            promises.push(
-              fetch(`http://${ip}:${port}/room`, {
-                signal: AbortSignal.timeout(7000),
+          promises.push(
+            fetch(`http://${ip}:${port}/room`, {
+              signal: AbortSignal.timeout(7000),
+            })
+              .then((res) => (res.ok ? res.json() : null))
+              .then((data) => {
+                if (data?.room) {
+                  found.push({
+                    id: data.room.id,
+                    host: data.room.host,
+                    playerCount: 0,
+                    url: data.room.url,
+                  });
+                }
               })
-                .then((res) => (res.ok ? res.json() : null))
-                .then((data) => {
-                  if (data?.room) {
-                    found.push({
-                      id: data.room.id,
-                      host: data.room.host,
-                      playerCount: 0,
-                      url: data.room.url,
-                    });
-                  }
-                })
-                .catch(() => null),
-            );
-          }
+              .catch(() => null),
+          );
         }
 
         await Promise.all(promises);
