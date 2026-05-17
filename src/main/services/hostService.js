@@ -133,7 +133,7 @@ function createHostService() {
           const ip = subnet + i;
 
           promises.push(
-            fetch(`http://${ip}:${port}/room`, {
+            fetch(`http://${ip}:${ports}/room`, {
               signal: AbortSignal.timeout(7000),
             })
               .then((res) => (res.ok ? res.json() : null))
