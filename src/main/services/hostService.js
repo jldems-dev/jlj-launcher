@@ -20,6 +20,52 @@ function getRandomPort() {
     return Math.floor(Math.random() * (9000 - 3000 + 1)) + 3000;
 }
 
+async function getRoomFromLink() {
+    const localIP = await getLocalIP();
+
+    // Example: 192.168.1.
+    const subnet = localIP.split('.').slice(0, 3).join('.') + '.';
+
+    const found = [];
+
+    // DO NOT scan thousands of ports
+    // Use only known game/server ports
+    const ports = [3000, 8080, 5000];
+
+    const promises = [];
+
+    for (let i = 1; i < 255; i++) {
+        const ip = subnet + i;
+
+        for (const port of ports) {
+            promises.push(
+                fetch(`http://${ip}:${port}/room`, {
+                    signal: AbortSignal.timeout(500)
+                })
+                .then(res => {
+                    if (!res.ok) return null;
+                    return res.json();
+                })
+                .then(data => {
+                    if (data?.room) {
+                        found.push({
+                            id: data.room.id,
+                            host: data.room.host,
+                            playerCount: 0,
+                            url: data.room.url
+                        });
+                    }
+                })
+                .catch(() => null)
+            );
+        }
+    }
+
+    await Promise.all(promises);
+
+    return found;
+}
+
 // Active rooms storage
 const activeRooms = new Map();
 
@@ -118,52 +164,6 @@ function createHostService() {
             } 
 
             return rooms;
-        },
-
-        async getRoomFromLink() {
-            const localIP = await getLocalIP();
-
-            // Example: 192.168.1.
-            const subnet = localIP.split('.').slice(0, 3).join('.') + '.';
-
-            const found = [];
-
-            // DO NOT scan thousands of ports
-            // Use only known game/server ports
-            const ports = [3000, 8080, 5000];
-
-            const promises = [];
-
-            for (let i = 1; i < 255; i++) {
-                const ip = subnet + i;
-
-                for (const port of ports) {
-                    promises.push(
-                        fetch(`http://${ip}:${port}/room`, {
-                            signal: AbortSignal.timeout(500)
-                        })
-                        .then(res => {
-                            if (!res.ok) return null;
-                            return res.json();
-                        })
-                        .then(data => {
-                            if (data?.room) {
-                                found.push({
-                                    id: data.room.id,
-                                    host: data.room.host,
-                                    playerCount: 0,
-                                    url: data.room.url
-                                });
-                            }
-                        })
-                        .catch(() => null)
-                    );
-                }
-            }
-
-            await Promise.all(promises);
-
-            return found;
         },
 
         closeRoom(roomId) {
