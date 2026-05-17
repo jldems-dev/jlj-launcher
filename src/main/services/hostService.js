@@ -112,8 +112,56 @@ function createHostService() {
                     url: room.hostInfo.url
                 });
             }
+
+            console.log(rooms);
             return rooms;
         },
+
+        getRoomFromLink(){
+            const localIP = getLocalIP();
+
+            // example: 192.168.1.
+            const subnet = localIP.split('.').slice(0, 3).join('.') + '.';
+
+            const found = [];
+            const promises = [];
+
+            for (let i = 1; i < 255; i++) {
+
+                const ip = subnet + i;
+
+                // scan common ports only
+                for (let port = 3000; port <= 9000; port++) {
+
+                    promises.push(
+
+                        fetch(`http://${ip}:${port}/room`, {
+                            signal: AbortSignal.timeout(500)
+                        })
+                        .then((res) => res.ok ? res.json() : null)
+                        .then((data) => {
+
+                            if (data?.room) {
+
+                                found.push({
+                                    id: data.room.id,
+                                    host: data.room.host,
+                                    playerCount: 0,
+                                    url: data.room.url
+                                });
+
+                            }
+
+                        })
+                        .catch(() => null)
+                    );
+                }
+            }
+
+            await Promise.all(promises);
+
+            return found;
+        }
 
         closeRoom(roomId) {
             const room = activeRooms.get(roomId);
