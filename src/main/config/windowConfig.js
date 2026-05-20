@@ -1,7 +1,7 @@
 const { app } = require("electron");
 const path = require("path");
 
-function createBrowserWindowOptions() {
+function createBrowserWindowOptions(options = {}) {
   const root = app.getAppPath();
 
   return {
@@ -9,6 +9,7 @@ function createBrowserWindowOptions() {
     height: 900,
     minWidth: 1000,
     minHeight: 600,
+    show: options.show ?? true,
     frame: false,
     titleBarStyle: "hidden",
     backgroundColor: "#050505",
@@ -20,7 +21,7 @@ function createBrowserWindowOptions() {
       contextIsolation: true,
       sandbox: false,
       backgroundThrottling: false,
-      preload: path.join(root, "src", "preload", "electronApi.js") 
+      preload: path.join(root, "src", "preload", "electronApi.js"),
     },
   };
 }

@@ -87,11 +87,10 @@
                             <option value="6">6</option>
                         </select>
                     </div>
-                    <button class="btn" onclick="checkAllUpdates()" title="Check for updates" style="padding: 10px 14px;">
+                    <button class="btn" onclick="forceReload()" title="Check for updates" style="padding: 10px 14px;">
                         <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
                             <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
                         </svg>
-                        Check Updates
                     </button>
                 </div>
             </div>
@@ -262,12 +261,12 @@
             <div class="host-room-panel">
                 <div class="host-form">
                     <div class="host-form-grid">
-                        <div class="form-group">
+                        <div class="form-group" id="playerNameGroup">
                             <label class="form-label">Player Name</label>
                             <input type="text" id="hostPlayerName" class="form-input" placeholder="Enter your name" />
                         </div>
 
-                        <div class="form-group">
+                        <div class="form-group" id="mapGroup">
                             <label class="form-label">Game Map</label>
                             <select id="hostGameMap" class="form-select">
                                 <option value="">Select a map...</option>
@@ -306,29 +305,32 @@
                 </div>
             </div>
         </div>
-    </div>
+    </div> 
     <div id="updatePanel" class="update-panel hidden">
         <div class="update-box">
             <div class="update-title">Updating Application</div>
 
             <div class="update-bar">
-                <div id="updateProgressBar" class="update-fill"></div>
+            <div id="updateProgressBar" class="update-fill"></div>
             </div>
 
             <div class="update-info">
-                <span id="updatePercent">0%</span>
-                <span id="updateSpeed">0 KB/s</span>
+            <span id="updatePercent">0%</span>
+            <span id="updateSpeed">0 KB/s</span>
             </div>
 
             <div id="updateStatusText" class="update-status">
-                Preparing update...
+            Preparing update...
             </div>
+
+            <!-- ADD: Restart button (hidden by default) -->
+            <button id="restartBtn" class="restart-btn hidden">Restart Now</button>
         </div>
     </div>
     
 
     <div class="toast-container" id="toastContainer"></div>
 
-    <script src="assets/js/app.js"></script>
+    <script src="src/renderer/index.js"></script>
 </body>
 </html>

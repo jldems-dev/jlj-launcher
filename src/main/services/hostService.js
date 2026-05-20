@@ -1,6 +1,9 @@
 const os = require('os');
-const http = require('http');
-const { json } = require('stream/consumers');
+const http = require('http'); 
+const { json } = require('stream/consumers'); 
+ 
+const activeRooms = new Map();
+
 
 // Get local IP address
 function getLocalIP() {
@@ -13,20 +16,11 @@ function getLocalIP() {
         }
     }
     return '127.0.0.1';
-}
+} 
 
-// Generate random port between 3000-9000
-function getRandomPort() {
-    return Math.floor(Math.random() * (9000 - 3000 + 1)) + 3000;
-}
-
-// Active rooms storage
-const activeRooms = new Map();
-
-function createHostService() {
-    
+function createHostService() { 
     function createRoomServer(roomId, hostInfo) {
-        const port = 3000;
+        const port = hostInfo.title == "Left 4 Dead 2" ? 3000 : 3001;
         const localIP = getLocalIP();
         
         const server = http.createServer((req, res) => {
@@ -65,32 +59,31 @@ function createHostService() {
     }
 
     return {
-      createRoom(roomData) {
+      createRoom(data) {
         const roomId = `room-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
 
         const hostInfo = {
-          hostId: roomData.hostId,
+          hostId: data.hostId,
           pcName: os.hostname(),
           localIP: getLocalIP(),
-          playerName: roomData.playerName,
-          map: roomData.map,
-          mapname: roomData.mapname,
-          gameId: roomData.gameId,
-          port: null,
+          playerName: data.playerName,
+          gameId: data.gameId,
+          map: data.map,
+          mapname: data.mapname,
+          streamType: "sunshine",
+          sunshineHost: getLocalIP(),
+          title: data.title,
           createdAt: new Date().toISOString(),
-        };
+        }; 
 
-        const { server, port, url } = createRoomServer(roomId, hostInfo);
-
-        hostInfo.port = port;
-        hostInfo.url = url;
+        const { server, url } = createRoomServer(roomId, hostInfo); 
 
         activeRooms.set(roomId, {
           id: roomId,
           server,
           hostInfo,
           players: [],
-        });
+        }); 
 
         return {
           success: true,
@@ -98,6 +91,7 @@ function createHostService() {
             id: roomId,
             url,
             host: hostInfo,
+            parsec: true, // 👈 NEW FLAG
           },
         };
       },
@@ -134,7 +128,7 @@ function createHostService() {
 
           promises.push(
             fetch(`http://${ip}:${ports}/room`, {
-              signal: AbortSignal.timeout(7000),
+              signal: AbortSignal.timeout(3000),
             })
               .then((res) => (res.ok ? res.json() : null))
               .then((data) => {

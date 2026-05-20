@@ -83,7 +83,7 @@ function createGameStore(app, rootDir = process.cwd()) {
     try {
       fs.mkdirSync(path.dirname(dbPath), { recursive: true });
       fs.writeFileSync(dbPath, JSON.stringify(data, null, 2));
-      console.log(`Saved game data to ${dbPath}`);
+      // console.log(`Saved game data to ${dbPath}`);
     } catch (e) {
       console.error("Failed to save JSON:", e);
       throw e;

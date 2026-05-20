@@ -1,5 +1,4 @@
-const { app, ipcMain } = require("electron");
-const { autoUpdater } = require("electron-updater");
+const { app } = require("electron");
 const path = require("path");
 
 const { createWindow } = require("./createWindow");
@@ -13,65 +12,63 @@ const { createHostService } = require("./services/hostService");
 const { createGameUpdateService } = require("./services/gameUpdateService");
 const { registerIpcHandlers } = require("./ipc/registerIpcHandlers"); 
 
+const { createStreamService } = require("./services/streamService");
+
+const { autoUpdater } = require("electron-updater");
+
 function bootstrap() {
   let mainWindow;
+  let splash;
 
   const getMainWindow = () => mainWindow;
 
   const store = createGameStore(app);
+  const streamService = createStreamService();
 
-  const { autoUpdater } = require("electron-updater");
-
-  function setupAutoUpdates(mainWindow) {
+  // =========================
+  // AUTO UPDATER
+  // =========================
+  function setupAutoUpdates(win) {
     autoUpdater.autoDownload = true;
     autoUpdater.autoInstallOnAppQuit = true;
 
     autoUpdater.on("checking-for-update", () => {
-      mainWindow.webContents.send("update-status", {
-        status: "checking",
-      });
+      win.webContents.send("update-status", { status: "checking" });
     });
 
     autoUpdater.on("update-available", (info) => {
-      mainWindow.webContents.send("update-status", {
+      win.webContents.send("update-status", {
         status: "available",
         version: info.version,
       });
     });
 
     autoUpdater.on("update-not-available", () => {
-      mainWindow.webContents.send("update-status", {
-        status: "none",
-      });
+      win.webContents.send("update-status", { status: "none" });
     });
 
     autoUpdater.on("download-progress", (progress) => {
-      mainWindow.webContents.send("update-progress", {
+      win.webContents.send("update-progress", {
         percent: progress.percent.toFixed(2),
         speed: progress.bytesPerSecond,
       });
     });
 
     autoUpdater.on("update-downloaded", () => {
-      mainWindow.webContents.send("update-status", {
-        status: "ready",
-      });
+      win.webContents.send("update-status", { status: "ready" });
     });
 
     autoUpdater.on("error", (err) => {
-      console.error("Auto update error:", err);
-      mainWindow.webContents.send("update-status", {
+      win.webContents.send("update-status", {
         status: "error",
         message: err.message,
       });
     });
 
-    // 🔥 START CHECK
     autoUpdater.checkForUpdates();
   }
-  const updateService = createGameUpdateService({
-    store,
-  });
+
+  const updateService = createGameUpdateService({ store });
 
   const trackingService = createGameTrackingService({
     store,
@@ -90,7 +87,8 @@ function bootstrap() {
   const hostService = createHostService();
 
   registerIpcHandlers({
-    ipcMain,
+    ipcMain: require("electron").ipcMain,
+    autoUpdater,
     store,
     trackingService,
     launchService,
@@ -98,16 +96,50 @@ function bootstrap() {
     hostService,
     updateService,
     getMainWindow,
+    streamService, 
   });
 
+  // =========================
+  // APP START
+  // =========================
   app.whenReady().then(() => {
-    store.init();
-    mainWindow = createWindow();
-    setupAutoUpdates(mainWindow); 
+    // 1. SPLASH FIRST (instant UI)
+    splash = new (require("electron").BrowserWindow)({
+      width: 420,
+      height: 300,
+      frame: false,
+      alwaysOnTop: true,
+      transparent: true,
+    });
+
+    splash.loadFile(path.join(__dirname, "../renderer/splash.html"));
+
+    // 2. CREATE MAIN WINDOW (hidden)
+    mainWindow = createWindow({
+      show: false, // IMPORTANT
+    });
+
+    mainWindow.once("ready-to-show", () => {
+      // 3. SWITCH SPLASH → MAIN
+      setTimeout(() => {
+        splash.close();
+        mainWindow.show();
+      }, 500); // smooth transition
+    });
+
+    // 4. BACKGROUND BOOTSTRAP (NO BLOCKING UI)
+    setImmediate(async () => {
+      try {
+        await store.init();
+
+        setupAutoUpdates(mainWindow);
+      } catch (err) {
+        console.error("Bootstrap error:", err);
+      }
+    });
   });
 
   app.on("window-all-closed", () => {
-    trackingService.stopAll();
     if (process.platform !== "darwin") app.quit();
   });
 
@@ -116,7 +148,7 @@ function bootstrap() {
     if (BrowserWindow.getAllWindows().length === 0) {
       mainWindow = createWindow();
     }
-  }); 
+  });
 }
 
 module.exports = { bootstrap };

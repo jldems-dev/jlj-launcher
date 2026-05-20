@@ -15,8 +15,7 @@ function createGameUpdateService({ store }) {
       result = await checkRoblox(game);
     } else if (title.includes("crossfire")) {
       result = await checkCrossfire(game);
-    }
-
+    } 
     if (result) {
       store.updateGame(game.id, {
         version: result.version || game.version,
@@ -33,9 +32,23 @@ function createGameUpdateService({ store }) {
   async function checkAllGames() {
     const games = store.getGames();
 
+    const updates = [];
+
     for (const game of games) {
-      await checkGameUpdate(game.id);
+      const result = await checkGameUpdate(game.id);
+
+      if (result) {
+        updates.push({
+          gameId: game.id,
+          title: game.title,
+          currentVersion: game.version,
+          latestVersion: result.latestVersion,
+          status: result.status,
+        });
+      }
     }
+    
+    return updates;
   }
 
   return {

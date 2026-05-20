@@ -1,19 +1,45 @@
-const { shell } = require('electron');
+const { shell } = require('electron'); 
 
 function registerIpcHandlers({
   ipcMain,
+  autoUpdater,
   store,
   trackingService,
   launchService,
   detectionService,
-  hostService, 
+  hostService,
   updateService,
   getMainWindow,
+  streamService, 
 }) {
   ipcMain.handle("check-for-updates", () => {
     autoUpdater.checkForUpdates();
   });
-  
+
+  ipcMain.on("restart-app", () => {
+    let progress = 0;
+
+    const installInterval = setInterval(() => {
+      progress += 5;
+
+      const mainWindow = getMainWindow();
+
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send("install-progress", {
+          percent: progress,
+        });
+      }
+
+      if (progress >= 100) {
+        clearInterval(installInterval);
+
+        setTimeout(() => {
+          autoUpdater.quitAndInstall();
+        }, 500);
+      }
+    }, 150);
+  });
+
   ipcMain.handle("db-get-games", () => {
     return store.getGames();
   });
@@ -54,12 +80,9 @@ function registerIpcHandlers({
     },
   );
 
-  ipcMain.on(
-    "launch-game-as-host",
-    async (event, game) => { 
-      await launchService.launchGameAsHost(game);
-    },
-  );
+  ipcMain.on("launch-game-as-host", async (event, game) => {
+    await launchService.launchGameAsHost(game);
+  });
 
   ipcMain.on("stop-game", (event, gameId) => {
     trackingService.stopIfRunning(gameId);
@@ -101,8 +124,8 @@ function registerIpcHandlers({
   });
 
   // Room hosting handlers
-  ipcMain.handle("create-room", async (event, roomData) => {
-    return hostService.createRoom(roomData);
+  ipcMain.handle("create-room", async (event, payload) => {
+    return hostService.createRoom(payload);
   });
 
   ipcMain.handle("get-rooms", async () => {
@@ -111,6 +134,14 @@ function registerIpcHandlers({
 
   ipcMain.handle("close-room", async (event, roomId) => {
     return hostService.closeRoom(roomId);
+  }); 
+
+  ipcMain.handle("start-sunshine", async () => {
+    return streamService.startSunshine();
+  });
+
+  ipcMain.handle("start-moonlight", async (event, ip) => {
+    return streamService.startMoonlight(ip);
   });
 }
 

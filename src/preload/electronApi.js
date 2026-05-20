@@ -12,7 +12,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
 
   launchGame: (gameId, launchMethod, appId, title) =>
     ipcRenderer.send("launch-game", gameId, launchMethod, appId, title),
-  launchGameAsHost: (game) => ipcRenderer.send("launch-game-as-host", game),
+  launchGameAsHost: (data) => ipcRenderer.send("launch-game-as-host", data),
   stopGame: (gameId) => ipcRenderer.send("stop-game", gameId),
   isGameRunning: (gameId) => ipcRenderer.invoke("is-game-running", gameId),
   getElapsedTime: (gameId) => ipcRenderer.invoke("get-elapsed-time", gameId),
@@ -38,11 +38,16 @@ contextBridge.exposeInMainWorld("electronAPI", {
   changePassword: (currentPass, newPass) =>
     ipcRenderer.invoke("db-change-password", currentPass, newPass),
   getStorageInfo: () => ipcRenderer.invoke("db-get-storage-info"),
-
-  openExternal: (url) => ipcRenderer.send("open-external", url),
-
   createRoom: (data) => ipcRenderer.invoke("create-room", data),
   getRooms: () => ipcRenderer.invoke("get-rooms"),
   closeRoom: (roomId) => ipcRenderer.invoke("close-room", roomId),
   checkGameUpdates: () => ipcRenderer.invoke("check-game-updates"),
+
+  openExternal: (url) => ipcRenderer.send("open-external", url),
+  restartApp: () => ipcRenderer.send("restart-app"),
+  onInstallProgress: (callback) =>
+    ipcRenderer.on("install-progress", (event, data) => callback(data)), 
+  startSunshine: () => ipcRenderer.invoke("start-sunshine"),
+
+  startMoonlight: (ip) => ipcRenderer.invoke("start-moonlight", ip),
 });

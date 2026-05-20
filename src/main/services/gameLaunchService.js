@@ -88,8 +88,7 @@ function createGameLaunchService({ store, getMainWindow, detectionService, proce
         }
     }
 
-    async function launchGame(gameId, launchMethod, appId, title) {
-        console.log(title);
+    async function launchGame(gameId, launchMethod, appId, title) { 
       const game = store.findGame(gameId);
       if (!game) {
         console.error("Game not found:", gameId);

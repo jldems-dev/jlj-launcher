@@ -779,6 +779,10 @@ body {
     margin-bottom: 16px;
 }
 
+.form-group.full-width {
+    grid-column: 1 / -1;
+}
+
 .form-label {
     display: block;
     font-size: 12px;
@@ -1254,4 +1258,65 @@ body {
 .update-status {
     font-size: 12px;
     color: #ccc;
+}
+
+/* Add to your CSS */
+.restart-btn {
+    margin-top: 12px;
+    padding: 8px 24px;
+    background: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background 0.2s;
+}
+
+.restart-btn:hover {
+    background: #45a049;
+}
+
+.restart-btn.hidden {
+    display: none;
+}
+
+.game-card-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 14px;
+}
+
+.card-btn {
+    flex: 1;
+    border: none;
+    outline: none;
+    border-radius: 10px;
+    padding: 10px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition);
+    font-family: 'Poppins', sans-serif;
+}
+
+.card-btn.play {
+    background: white;
+    color: black;
+}
+
+.card-btn.play:hover {
+    transform: translateY(-1px);
+    background: #f1f1f1;
+}
+
+.card-btn.host {
+    background: rgba(255, 255, 255, 0.08);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.card-btn.host:hover {
+    background: rgba(255, 255, 255, 0.14);
+    border-color: rgba(255, 255, 255, 0.18);
 }
