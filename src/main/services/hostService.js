@@ -90,29 +90,13 @@ function createHostService() {
           room: {
             id: roomId,
             url,
-            host: hostInfo,
-            parsec: true, // 👈 NEW FLAG
+            host: hostInfo, 
           },
         };
       },
 
       async getRooms() {
-        let rooms = [];
-
-        for (const [id, room] of activeRooms) {
-          rooms.push({
-            id: room.id,
-            host: room.hostInfo,
-            playerCount: room.players.length,
-            url: room.hostInfo.url,
-          });
-        }
-
-        if (rooms.length === 0) {
-          rooms = await this.getRoomFromLink();
-        }
-
-        return rooms;
+        return await this.getRoomFromLink();
       },
 
       async getRoomFromLink() {
@@ -120,29 +104,33 @@ function createHostService() {
         const subnet = localIP.split(".").slice(0, 3).join(".") + ".";
 
         const found = [];
-        const ports = 3000; 
+        const ports = [3000, 3001, 3002];
         const promises = [];
 
         for (let i = 1; i < 255; i++) {
           const ip = subnet + i;
 
-          promises.push(
-            fetch(`http://${ip}:${ports}/room`, {
-              signal: AbortSignal.timeout(3000),
-            })
-              .then((res) => (res.ok ? res.json() : null))
-              .then((data) => {
-                if (data?.room) {
-                  found.push({
-                    id: data.room.id,
-                    host: data.room.host,
-                    playerCount: 0,
-                    url: data.room.url,
-                  });
-                }
+          for (const port of ports) {
+            promises.push(
+              fetch(`http://${ip}:${port}/room`, {
+                signal: AbortSignal.timeout(3000),
               })
-              .catch(() => null),
-          );
+                .then((res) => (res.ok ? res.json() : null))
+                .then((data) => {
+                  if (data?.room) {
+                    found.push({
+                      id: data.room.id,
+                      host: data.room.host,
+                      playerCount: 0,
+                      url: data.room.url,
+                      ip,
+                      port,
+                    });
+                  }
+                })
+                .catch(() => null)
+            );
+          }
         }
 
         await Promise.all(promises);

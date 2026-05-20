@@ -18,7 +18,7 @@ document.addEventListener("DOMContentLoaded", () => {
   bindWindowControls();
   bindCrudControls();
   loadGames();
-  loadMaps();
+  loadMaps(); 
   // Check for updates every 5 minutes
   setTimeout(() => {
     updateAppStatus();
@@ -598,8 +598,11 @@ function closeAddGameModal() {
 
 /* host */
 async function openHostModal(game) {
-  currentHostGame = game;
-
+  currentHostGame = game; 
+  const roomobj = JSON.parse(localStorage.getItem("roominfo"));  
+  const playername = roomobj ? roomobj.host.playerName : "";
+  const gamemap =  roomobj ? roomobj.host.map : "";
+  
   const title = (game.title || "").toLowerCase();
 
   const mapGroup = document.getElementById("mapGroup");
@@ -613,8 +616,7 @@ async function openHostModal(game) {
   // Show only for Left 4 Dead 2
   if (title.includes("left 4 dead 2")) {
     mapGroup.style.display = "block";
-    playerNameGroup.classList.remove("full-width");
-
+    playerNameGroup.classList.remove("full-width"); 
     await loadMaps(); 
   } else {
     mapGroup.style.display = "none";
@@ -622,13 +624,14 @@ async function openHostModal(game) {
   }
 
   document.getElementById("hostModal").classList.add("active");
-
   document.getElementById("hostGameCover").src = game.cover;
   document.getElementById("hostGameTitle").textContent = game.title;
   document.getElementById("hostGameGenre").textContent = game.genre;
   document.getElementById("hostGameStatus").textContent = game.status;
   document.getElementById("hostGameVersion").textContent = `v${game.version}`;
-  document.getElementById("hostGameExe").textContent = game.exePath;
+  document.getElementById("hostGameExe").textContent = game.exePath; 
+  document.getElementById("hostPlayerName").value = playername;
+  document.getElementById("hostGameMap").value = gamemap; 
 
   await refreshRooms();
 }
@@ -661,7 +664,7 @@ async function loadMaps() {
     console.error("Failed to load maps:", error);
     showToast("Failed to load maps", "error");
   }
-}
+} 
 // Create room with validation
 async function createRoom() { 
   if (!currentHostGame) return;
@@ -683,9 +686,7 @@ async function createRoom() {
       playerName,
       hostId,
       map: "",
-      mapname: "",
-      useParsec: false,
-      parsecLink: null,
+      mapname: "", 
     };
 
     if (currentHostGame.title.toLowerCase().includes("left 4 dead 2")) {
@@ -713,7 +714,7 @@ async function createRoom() {
     const result = await window.electronAPI.createRoom(payload); 
     if (result.success) {
       localStorage.setItem("roominfo", JSON.stringify(result.room)); 
-      restoreRoom(); 
+      refreshRooms(); 
       
       await window.electronAPI.launchGameAsHost({
         gameId: currentHostGame.id,
@@ -736,70 +737,79 @@ async function createRoom() {
   }
 }
 // Display the hosted room in Active Rooms section
-function renderHostRoom(room) { 
+function renderHostRoom(rooms) {  
+ 
   const roomsList = document.getElementById("roomsList");
-  const myHostId = localStorage.getItem("hostId");
-  const isOwner = room.host.hostId === myHostId;
+  const myHostId = localStorage.getItem("hostId"); 
+  const filteredRooms = rooms.filter(
+    (room) => room.host.gameId === currentHostGame.id,
+  );
 
-  roomsList.innerHTML = `
-      <div style="padding: 16px; width: 100%;">
-          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
-              <div>
-                  <div style="font-size: 13px; font-weight: 600; color: var(--text-primary); margin-bottom: 2px;">
-                      ${room.host.playerName}'s Room
-                  </div>
-                  <div style="font-size: 11px; color: var(--text-muted);">
-                      ${room.host.pcName} • ${room.host.mapname}
-                  </div>
-              </div>
-              <span style="font-size: 10px; padding: 3px 8px; background: rgba(50, 255, 50, 0.15); color: #6bff6b; border-radius: 20px; border: 1px solid rgba(50, 255, 50, 0.3);">
-                  HOSTING
-              </span>
-          </div>
-          
-          <div style="background: var(--bg-hover); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; margin-bottom: 12px;">
-              <div style="font-size: 10px; color: var(--text-muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;">Room URL</div>
-              <div style="display: flex; gap: 8px; align-items: center;">
-                  <code style="font-size: 12px; color: var(--text-primary); flex: 1; overflow: hidden; text-overflow: ellipsis;">${room.url}</code>
-                  ${
-                    !isOwner
-                      ? `<button class="btn" style="padding: 4px 10px; font-size: 11px;" onclick="joinRoom('${room.host.streamType}', '${room.host.sunshineHost}')">Join</button>`
-                      : `
-                      <button class="btn" style="padding: 4px 10px; font-size: 11px;" onclick="copyToClipboard('${room.url}')">Copy</button>`
-                  }
-              </div>
-          </div>
-          
-          <div style="display: flex; gap: 8px;">
-              <button onclick="closeCurrentRoom()" class="btn btn-danger" style="flex: 1; font-size: 11px;">Close Room</button>
-          </div>
+  roomsList.innerHTML =
+    filteredRooms.length === 0
+      ? `
+      <div style="text-align: center; color: var(--text-muted); padding: 20px;">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom: 10px; opacity: 0.3;">
+              <circle cx="11" cy="11" r="8"/>
+              <path d="M21 21l-4.35-4.35"/>
+          </svg>
+          <p style="font-size: 12px;">No active sessions found</p>
       </div>
-  `;
+    `
+    : filteredRooms
+        .map((room) => {
+          const isOwner = room.host.hostId === myHostId;
+
+          return `
+          <div style="padding: 16px; width: 100%;">
+              <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+                  <div>
+                      <div style="font-size: 13px; font-weight: 600; color: var(--text-primary); margin-bottom: 2px;">
+                          ${room.host.playerName}'s Room
+                      </div>
+                      <div style="font-size: 11px; color: var(--text-muted);">
+                          ${room.host.pcName} • ${room.host.mapname}
+                      </div>
+                  </div>
+                  <span style="font-size: 10px; padding: 3px 8px; background: rgba(50, 255, 50, 0.15); color: #6bff6b; border-radius: 20px; border: 1px solid rgba(50, 255, 50, 0.3);">
+                      HOSTING
+                  </span>
+              </div>
+              
+              <div style="background: var(--bg-hover); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; margin-bottom: 12px;">
+                  <div style="font-size: 10px; color: var(--text-muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;">Room URL</div>
+                  <div style="display: flex; gap: 8px; align-items: center;">
+                      <code style="font-size: 12px; color: var(--text-primary); flex: 1; overflow: hidden; text-overflow: ellipsis;">
+                          ${room.url}
+                      </code>
+
+                      ${
+                        !isOwner
+                          ? `<button class="btn" style="padding: 4px 10px; font-size: 11px;" onclick="joinRoom('${room.host.streamType}', '${room.host.sunshineHost}')">Join</button>`
+                          : `<button class="btn" style="padding: 4px 10px; font-size: 11px;" onclick="copyToClipboard('${room.url}')">Copy</button>`
+                      }
+                  </div>
+              </div>
+              
+              <div style="display: flex; gap: 8px;">
+                  <button onclick="closeCurrentRoom()" class="btn btn-danger" style="flex: 1; font-size: 11px;">
+                      Close Room
+                  </button>
+              </div>
+          </div>
+        `;
+        })
+        .join("");
+
 }
 // Refresh active rooms list
 async function refreshRooms() {
-  const roomsList = document.getElementById("roomsList"); 
-  // If user is hosting, don't overwrite their room display
-  if (window.currentRoomId) return; 
+  const roomsList = document.getElementById("roomsList");  
   const btn = document.querySelector(".refresh-btn");
   setLoadingButton(btn, true, "Scanning...");
 
   try {
-    const rooms = await window.electronAPI.getRooms();
-    
-    if (rooms.length === 0) {
-      roomsList.innerHTML = `
-                <div style="text-align: center; color: var(--text-muted); padding: 20px;">
-                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom: 10px; opacity: 0.3;">
-                        <circle cx="11" cy="11" r="8"/>
-                        <path d="M21 21l-4.35-4.35"/>
-                    </svg>
-                    <p style="font-size: 12px;">No active sessions found</p>
-                </div>
-            `;
-      return;
-    }
-
+    const rooms = await window.electronAPI.getRooms();  
     renderHostRoom(rooms);
   } catch (error) {
     console.error("Failed to refresh rooms:", error);
@@ -807,20 +817,7 @@ async function refreshRooms() {
   } finally {
     setLoadingButton(btn, false);
   }
-}
-function restoreRoom() {
-  const saved = localStorage.getItem("roominfo");
-  if (!saved) return;
-
-  const room = JSON.parse(saved);
-
-  document.getElementById("hostPlayerName").value = room.host.playerName;
-  document.getElementById("hostGameMap").value = room.host.map;
-
-  window.currentRoomId = room.id;
-  renderHostRoom(room);
-}
-restoreRoom();
+} 
 async function joinRoom(streamType, sunshineHost) { 
   if (streamType === "sunshine") {
     await window.electronAPI.startMoonlight(sunshineHost);
@@ -829,7 +826,7 @@ async function joinRoom(streamType, sunshineHost) {
 
     return;
   }
-} 
+}
 
 // Copy URL to clipboard
 function copyToClipboard(text) {
@@ -848,14 +845,14 @@ async function closeCurrentRoom() {
 
     // Reset to empty state
     document.getElementById("roomsList").innerHTML = `
-            <div style="text-align: center; color: var(--text-muted); padding: 20px;">
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom: 10px; opacity: 0.3;">
-                    <circle cx="11" cy="11" r="8"/>
-                    <path d="M21 21l-4.35-4.35"/>
-                </svg>
-                <p style="font-size: 12px;">Click "Refresh Rooms" to scan for active sessions</p>
-            </div>
-        `;
+        <div style="text-align: center; color: var(--text-muted); padding: 20px;">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom: 10px; opacity: 0.3;">
+                <circle cx="11" cy="11" r="8"/>
+                <path d="M21 21l-4.35-4.35"/>
+            </svg>
+            <p style="font-size: 12px;">Click "Refresh Rooms" to scan for active sessions</p>
+        </div>
+    `;
 
     localStorage.removeItem("roominfo");
     localStorage.removeItem("hostId", hostId);
