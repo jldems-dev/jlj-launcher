@@ -1085,7 +1085,7 @@ function renderHostRoom(rooms) {
     .map((room) => {
       const isOwner = room.host.hostId === myHostId;
 
-      const actionButton = !isOwner
+      const actionButton = isOwner
         ? `<button class="btn" style="padding:4px 10px;font-size:11px" onclick="copyToClipboard('${room.url}')">Copy</button>`
         : `<button class="btn" style="padding:4px 10px;font-size:11px" onclick='event.stopPropagation();joinRoom(${JSON.stringify(room)})'>Join</button>`;
 
