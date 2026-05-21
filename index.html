@@ -47,13 +47,36 @@
                     <svg class="nav-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/></svg>
                     TikTok
                 </div>
-            </div>
+            </div> 
             <div class="nav-section">
                 <div class="nav-header">Tools</div>
                 <div class="nav-item" onclick="openExternal('https://google.com')">
                     <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg>
                     Browser
                 </div>
+                <div class="nav-item" onclick="openQosModal()">
+                    <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                        <path d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                    </svg>
+                    Brave QoS
+                    <span class="tag" id="qosNavBadge" style="display: none; margin-left: auto; font-size: 10px; padding: 2px 8px;"></span>
+                </div>
+            </div>
+
+            <!-- QoS Panel (hidden by default) -->
+            <div class="qos-panel" id="qosPanel" style="display: none;">
+                <div class="qos-header">
+                    <span class="qos-title">Brave Throttle</span>
+                    <span class="qos-status" id="qosStatusText">Checking...</span>
+                </div>
+                <div class="qos-buttons">
+                    <button class="qos-btn" id="qosBtn3" onclick="setQosThrottle(3)">3 Mbps</button>
+                    <button class="qos-btn" id="qosBtn4" onclick="setQosThrottle(4)">4 Mbps</button>
+                    <button class="qos-btn" id="qosBtn5" onclick="setQosThrottle(5)">5 Mbps</button>
+                </div>
+                <button class="qos-disable-btn" id="qosBtnDisable" onclick="removeQosThrottle()" style="display: none;">
+                    Disable Throttle
+                </button>
             </div>
             <div class="nav-section">
                 <div class="nav-header">Owner</div>
@@ -182,8 +205,9 @@
                 <input type="text" class="form-input" placeholder="C:\Games\GameName\game.exe" id="gameExeManual">
             </div>
             <div class="form-group">
-                <label class="form-label">Cover Image URL</label>
-                <input type="text" class="form-input" placeholder="https://..." id="gameCover">
+                <label class="form-label">Cover Image</label>
+                <input type="file" class="form-input" accept="image/*" id="gameCoverUpload">
+                <small class="form-hint">Image will be saved to the game's directory</small>
             </div>
             <div class="form-group">
                 <label class="form-label">Launch Method</label>
@@ -305,7 +329,71 @@
                 </div>
             </div>
         </div>
-    </div> 
+    </div>
+    <!-- QoS Throttle Modal --> 
+    <div class="modal-overlay" id="qosModal">
+        <div class="modal" style="max-width: 480px;">
+            <div class="modal-header">
+                <div>
+                    <h3 class="modal-title">Brave QoS Control</h3>
+                    <p style="font-size: 13px; color: var(--text-muted); margin-top: 4px;">Limit Brave browser bandwidth</p>
+                </div>
+                <button class="modal-close" onclick="closeQosModal()">✕</button>
+            </div>
+
+            <!-- Status Card (matches host-game-info) -->
+            <div class="qos-status-card" id="qosStatusCard">
+                <div class="qos-status-icon-wrap" id="qosStatusIconWrap">
+                    <svg width="32" height="32" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+                        <path d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                    </svg>
+                </div>
+                <div class="qos-status-details">
+                    <div class="qos-status-title" id="qosStatusTitle">No Throttle Active</div>
+                    <div class="qos-status-tags">
+                        <span class="tag" id="qosStatusTag">Full Speed</span>
+                        <span class="tag" id="qosStatusTag2">Unrestricted</span>
+                    </div>
+                    <div class="qos-status-desc" id="qosStatusDesc">Brave is running at maximum bandwidth</div>
+                </div>
+            </div>
+
+            <!-- Presets Panel (matches host-room-panel) -->
+            <div class="qos-presets-panel">
+                <div class="host-room-header" style="margin-top: 0;">
+                    <div>
+                        <h3>Speed Presets</h3>
+                        <p>Select a bandwidth limit for Brave</p>
+                    </div>
+                </div>
+
+                <div class="qos-form-grid">
+                    <div class="qos-preset-box" id="qosPreset3" onclick="setQosThrottle(3)">
+                        <div class="qos-preset-value">3</div>
+                        <div class="qos-preset-label">Mbps</div>
+                        <div class="qos-preset-hint">~3 Mbps speedtest</div>
+                    </div>
+                    <div class="qos-preset-box" id="qosPreset4" onclick="setQosThrottle(4)">
+                        <div class="qos-preset-value">4</div>
+                        <div class="qos-preset-label">Mbps</div>
+                        <div class="qos-preset-hint">~4 Mbps speedtest</div>
+                    </div>
+                    <div class="qos-preset-box" id="qosPreset5" onclick="setQosThrottle(5)">
+                        <div class="qos-preset-value">5</div>
+                        <div class="qos-preset-label">Mbps</div>
+                        <div class="qos-preset-hint">~5 Mbps speedtest</div>
+                    </div>
+                </div>
+
+                <button class="btn btn-danger btn-full" id="qosDisableBtn" onclick="removeQosThrottle()" style="display: none; margin-top: 16px;">
+                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                        <path d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
+                    </svg>
+                    Disable Throttle
+                </button>
+            </div>
+        </div>
+    </div>
     <div id="updatePanel" class="update-panel hidden">
         <div class="update-box">
             <div class="update-title">Updating Application</div>

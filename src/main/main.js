@@ -6,14 +6,13 @@ const { createGameStore } = require("./storage/gameStore");
 
 const detectionService = require("./services/gameDetectionService");
 const processService = require("./services/processService");
+const qosService = require("./services/qosService");
 const { createGameTrackingService } = require("./services/gameTrackingService");
 const { createGameLaunchService } = require("./services/gameLaunchService");
 const { createHostService } = require("./services/hostService");
 const { createGameUpdateService } = require("./services/gameUpdateService");
-const { registerIpcHandlers } = require("./ipc/registerIpcHandlers"); 
-
-const { createStreamService } = require("./services/streamService");
-
+const { registerIpcHandlers } = require("./ipc/registerIpcHandlers");   
+const { connectSocket } = require("./services/adminSocketService");
 const { autoUpdater } = require("electron-updater");
 
 function bootstrap() {
@@ -22,8 +21,7 @@ function bootstrap() {
 
   const getMainWindow = () => mainWindow;
 
-  const store = createGameStore(app);
-  const streamService = createStreamService();
+  const store = createGameStore(app); 
 
   // =========================
   // AUTO UPDATER
@@ -95,8 +93,8 @@ function bootstrap() {
     detectionService,
     hostService,
     updateService,
-    getMainWindow,
-    streamService, 
+    getMainWindow, 
+    qosService,
   });
 
   // =========================
@@ -125,7 +123,7 @@ function bootstrap() {
         splash.close();
         mainWindow.show();
       }, 500); // smooth transition
-    });
+    }); 
 
     // 4. BACKGROUND BOOTSTRAP (NO BLOCKING UI)
     setImmediate(async () => {
@@ -133,6 +131,7 @@ function bootstrap() {
         await store.init();
 
         setupAutoUpdates(mainWindow);
+        // connectSocket();
       } catch (err) {
         console.error("Bootstrap error:", err);
       }

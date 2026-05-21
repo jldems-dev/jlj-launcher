@@ -2,7 +2,7 @@ const checkRoblox = require("./updaters/checkRoblox");
 const checkCrossfire = require("./updaters/checkCrossfire");
 
 function createGameUpdateService({ store }) {
-  async function checkGameUpdate(gameId) {
+  async function checkGameUpdates(gameId) { 
     const game = store.findGame(gameId);
 
     if (!game) return null;
@@ -11,17 +11,15 @@ function createGameUpdateService({ store }) {
 
     const title = game.title.toLowerCase(); 
 
-    if (title.includes("roblox")) {
-      result = await checkRoblox(game);
+    if (title.includes("roblox")) { 
+      result = await checkRoblox(game); 
     } else if (title.includes("crossfire")) {
       result = await checkCrossfire(game);
-    } 
+    }  
     if (result) {
       store.updateGame(game.id, {
         version: result.version || game.version,
-
         latestVersion: result.latestVersion || game.latestVersion,
-
         status: result.status || game.status,
       });
     }
@@ -30,12 +28,12 @@ function createGameUpdateService({ store }) {
   }
 
   async function checkAllGames() {
-    const games = store.getGames();
-
+    const games = store.getGames(); 
     const updates = [];
 
     for (const game of games) {
-      const result = await checkGameUpdate(game.id);
+      
+      const result = await checkGameUpdates(game.id);
 
       if (result) {
         updates.push({
@@ -52,7 +50,7 @@ function createGameUpdateService({ store }) {
   }
 
   return {
-    checkGameUpdate,
+    checkGameUpdates,
     checkAllGames,
   };
 }

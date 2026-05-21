@@ -4,13 +4,12 @@ const axios = require("axios");
 
 function getInstalledRobloxVersion(game) {
   try {
-    const basePath = game.exePath || game.detectedExePath;
 
+    const basePath = game.exePath;  
     if (!basePath) return null;
 
     const robloxVersionsPath = path.join(
-      path.dirname(path.dirname(basePath)),
-      "Versions",
+      path.dirname(path.dirname(basePath))
     );
 
     if (!fs.existsSync(robloxVersionsPath)) {
@@ -19,8 +18,7 @@ function getInstalledRobloxVersion(game) {
 
     const folders = fs
       .readdirSync(robloxVersionsPath)
-      .filter((f) => f.startsWith("version-"));
-
+      .filter((f) => f.startsWith("version-")); 
     if (!folders.length) return null;
 
     return folders.sort().pop();
@@ -34,10 +32,10 @@ async function getLatestRobloxVersion() {
     const res = await axios.get(
       "https://clientsettingscdn.roblox.com/v2/client-version/WindowsPlayer",
       {
-        timeout: 10000,
+        timeout: 1000,
       },
     );
-
+   
     return res.data.clientVersionUpload;
   } catch {
     return null;
@@ -45,9 +43,9 @@ async function getLatestRobloxVersion() {
 }
 
 module.exports = async function checkRoblox(game) {
-  try {
-    const localVersion = getInstalledRobloxVersion(game);
-
+  
+  try { 
+    const localVersion = getInstalledRobloxVersion(game);  
     if (!localVersion) {
       return {
         game: "Roblox",
@@ -57,6 +55,7 @@ module.exports = async function checkRoblox(game) {
 
     const latestVersion = await getLatestRobloxVersion();
 
+    
     if (!latestVersion) {
       return {
         game: "Roblox",
@@ -66,8 +65,7 @@ module.exports = async function checkRoblox(game) {
       };
     }
 
-    const updated = localVersion.includes(latestVersion);
-
+    const updated = localVersion.includes(latestVersion); 
     return {
       game: "Roblox",
       version: localVersion,

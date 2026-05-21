@@ -4,6 +4,7 @@ const os = require("os");
 const { shell } = require('electron');
 const { GAME_PATTERNS } = require('../config/gamePatterns');
 const { exec, spawn } = require("child_process");
+const runtimeState = require("./runtimeState");
 
 function createGameLaunchService({ store, getMainWindow, detectionService, processService, trackingService }) {
     function launchDirect(exePath, gameId) {
@@ -11,7 +12,6 @@ function createGameLaunchService({ store, getMainWindow, detectionService, proce
         trackingService.startProcessMonitor(gameId, processName, exePath);
         shell.openPath(exePath);
     }
-
     async function launchRoblox(gameId) {
         const exePath = await detectionService.findRobloxExe();
 
@@ -45,7 +45,6 @@ function createGameLaunchService({ store, getMainWindow, detectionService, proce
 
         launchDirect(exePath, gameId);
     }
-
     function launchSteam(appId, gameId) {
         const steamUrl = `steam://rungameid/${appId}`;
         shell.openExternal(steamUrl);
@@ -55,12 +54,10 @@ function createGameLaunchService({ store, getMainWindow, detectionService, proce
         setTimeout(async () => {
         }, 10000);
     }
-
     function launchEpic(appName, gameId) {
         const epicUrl = `com.epicgames.launcher://apps/${appName}?action=launch&silent=true`;
         shell.openExternal(epicUrl);
     }
-
     async function launchAutoDetect(game, gameId) {
         const titleLower = game.title.toLowerCase();
         let detectedMethod = 'direct';
@@ -87,7 +84,6 @@ function createGameLaunchService({ store, getMainWindow, detectionService, proce
             }
         }
     }
-
     async function launchGame(gameId, launchMethod, appId, title) { 
       const game = store.findGame(gameId);
       if (!game) {
@@ -123,6 +119,11 @@ function createGameLaunchService({ store, getMainWindow, detectionService, proce
             }
             break;
         }
+
+        runtimeState.currentGame = {
+          id: game.id,
+          title: game.title,
+        };
       } catch (error) {
         console.error("Launch failed:", error);
         const mainWindow = getMainWindow();
@@ -134,14 +135,12 @@ function createGameLaunchService({ store, getMainWindow, detectionService, proce
         }
       }
     }
-
-    async function launchGameAsHost(game) { 
+    async function launchGameAsHost(game) {
       if (!game.exePath) {
         throw new Error("Game executable missing");
       }
 
       const exe = game.exePath;
-
       let args = [];
 
       // LEFT 4 DEAD 2 HOST SUPPORT
@@ -149,14 +148,14 @@ function createGameLaunchService({ store, getMainWindow, detectionService, proce
         const map = game.map || "c1m1_hotel";
         const username = game.playerName || "Player1";
 
-        setGoldbergUsername(username);
+        await setGoldbergUsername(username); // <-- Add await if async
 
         args = ["-console", "+sv_lan", "1", "+map", map, "+name", username];
       }
 
       const processName = path.basename(exe);
 
-      trackingService.startProcessMonitor(game.gameId, processName, exe); 
+      trackingService.startProcessMonitor(game.gameId, processName, exe);
 
       spawn(exe, args, {
         detached: true,
@@ -165,6 +164,75 @@ function createGameLaunchService({ store, getMainWindow, detectionService, proce
 
       return {
         success: true,
+      };
+    }
+    async function launchGameHostJoin(params) {
+      if (!params) {
+        throw new Error("Room is missing");
+      }
+
+      const game = store.findGame(params.host.gameId);
+
+      if (!game) {
+        throw new Error("Game not found in library");
+      }
+
+      if (!game.exePath) {
+        throw new Error("Game executable missing");
+      }
+
+      let args = []; // <-- Declare args!
+
+      // LEFT 4 DEAD 2 JOIN SUPPORT
+      if (params.host.title.toLowerCase().includes("left 4 dead 2")) {
+        const map = params.host.map || "c1m1_hotel";
+        const username = params.host.playerName || "Player1";
+        const connectUrl = `${params.ip}:${params.port}`; // <-- Use actual IP:port, not "url" string
+        const gamePath = game.exePath;
+
+        setGoldbergUsername(username);
+
+        args = [
+          "-console",
+          "+connect",
+          connectUrl, // <-- Fixed: use variable not string "url"
+          "+map",
+          map,
+          "+name",
+          username,
+        ];
+
+        const processName = path.basename(gamePath); // <-- Use gamePath not undefined exe
+
+        trackingService.startProcessMonitor(game.gameId, processName, gamePath);
+
+        spawn(gamePath, args, {
+          detached: true,
+          stdio: "ignore",
+        }).unref(); 
+        return {
+          success: true,
+          room: params,
+        };
+      }
+
+      // Fallback for non-L4D2 games
+      const processName = path.basename(game.exePath);
+
+      trackingService.startProcessMonitor(
+        game.gameId,
+        processName,
+        game.exePath,
+      );
+
+      spawn(game.exePath, [], {
+        detached: true,
+        stdio: "ignore",
+      }).unref();
+
+      return {
+        success: true,
+        room: params,
       };
     }
     async function setGoldbergUsername(username) {
@@ -199,6 +267,7 @@ function createGameLaunchService({ store, getMainWindow, detectionService, proce
       launchAutoDetect,
       launchGame,
       launchGameAsHost,
+      launchGameHostJoin,
     };
 }
 

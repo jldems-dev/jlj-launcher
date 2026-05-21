@@ -7,7 +7,7 @@ app.whenReady().then(() => {
  */
 const { app } = require("electron");
 app.disableHardwareAcceleration();
-const { bootstrap } = require("./src/main/app");
+const { bootstrap } = require("./src/main/main");
 
 app.whenReady().then(() => {
   bootstrap();

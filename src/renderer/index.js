@@ -1,169 +1,335 @@
-let isOwnerLoggedIn = false;
-let currentFilter = "all";
-let currentSearch = "";
-let currentRows = 5;
-let allGames = []; 
-let games = [];
-let gameToDelete = null;
-let currentHostGame = null;
-let cachedMaps = [];
-let listmap = null;
+// ============================================================
+// STATE MANAGEMENT
+// ============================================================
+const State = {
+  isOwnerLoggedIn: false,
+  currentFilter: "all",
+  currentSearch: "",
+  currentRows: 5,
+  allGames: [],
+  games: [],
+  gameToDelete: null,
+  currentHostGame: null,
+  cachedMaps: [],
+  currentlyPlaying: null,
+  playTimerInterval: null,
+  updateListenerAttached: false,
+};
 
-// Play time tracking
-let currentlyPlaying = null;
-let playTimerInterval = null;
-let updateListenerAttached = false;
+// ============================================================
+// DOM UTILITIES
+// ============================================================
+const $ = (id) => document.getElementById(id);
+const $$ = (sel) => document.querySelectorAll(sel);
 
+// ============================================================
+// INITIALIZATION
+// ============================================================
 document.addEventListener("DOMContentLoaded", () => {
   bindWindowControls();
   bindCrudControls();
   loadGames();
-  loadMaps(); 
-  // Check for updates every 5 minutes
-  setTimeout(() => {
-    updateAppStatus();
-  }, 0);
-  setInterval(checkForUpdates, 24 * 60 * 60 * 1000);
+  loadMaps();
+
+  // Check for updates
+  setTimeout(updateAppStatus, 0);
   setTimeout(checkForUpdates, 2000);
+  setInterval(checkForUpdates, 24 * 60 * 60 * 1000);
+
+  // Global key handlers
+  document.addEventListener("keydown", handleGlobalKeys);
+  window.addEventListener("beforeunload", handleBeforeUnload);
+
+  // Modal backdrop clicks
+  $("hostModal")?.addEventListener("click", (e) => {
+    if (e.target === e.currentTarget) closeHostModal();
+  });
 });
 
+// ============================================================
+// UPDATE / AUTO-UPDATER
+// ============================================================
 function updateAppStatus() {
-  if (updateListenerAttached) return;
-  updateListenerAttached = true;
+  if (State.updateListenerAttached) return;
+  State.updateListenerAttached = true;
 
-  const panel = document.getElementById("updatePanel");
-  const bar = document.getElementById("updateProgressBar");
-  const percentText = document.getElementById("updatePercent");
-  const speedText = document.getElementById("updateSpeed");
-  const statusText = document.getElementById("updateStatusText");
-  const restartBtn = document.getElementById("restartBtn");
+  const panel = $("updatePanel");
+  const bar = $("updateProgressBar");
+  const percentText = $("updatePercent");
+  const speedText = $("updateSpeed");
+  const statusText = $("updateStatusText");
+  const restartBtn = $("restartBtn");
 
   if (!window.electronAPI) return;
 
-  let restartTimeout; 
+  window.electronAPI.onUpdateStatus((data) => {
+    panel?.classList.remove("hidden");
 
-  window.electronAPI.onUpdateStatus((data) => { 
+    switch (data.status) {
+      case "available":
+        restartBtn?.classList.add("hidden");
+        statusText.textContent = "Downloading update...";
+        break;
 
-    if (data.status === "available") {
-      panel.classList.remove("hidden");
-      restartBtn.classList.add("hidden");
-      statusText.textContent = "Downloading update...";
-    }
+      case "ready":
+        percentText.textContent = "100%";
+        bar.style.width = "100%";
+        statusText.textContent = "Update downloaded successfully";
+        restartBtn?.classList.remove("hidden");
+        restartBtn.textContent = "Install Now";
+        break;
 
-    if (data.status === "ready") {
-      percentText.textContent = "100%";
-      bar.style.width = "100%";
-
-      statusText.textContent = "Update downloaded successfully";
-
-      restartBtn.classList.remove("hidden");
-
-      restartBtn.textContent = "Install Now";
-
-      /* // Auto-restart countdown
-      let countdown = 10;
-      statusText.textContent = `Update ready. Restarting in ${countdown}...`;
-
-      restartBtn.classList.remove("hidden");
-      restartBtn.textContent = "Restart Now";
-
-      // Countdown timer
-      restartTimeout = setInterval(() => {
-        countdown--;
-        if (countdown > 0) {
-          statusText.textContent = `Update ready. Restarting in ${countdown}...`;
-        } else {
-          clearInterval(restartTimeout);
-          window.electronAPI.restartApp();
-        }
-      }, 1000); */
-    }
-
-    if (data.status === "error") {
-      // clearInterval(restartTimeout);
-      statusText.textContent = "Update failed: " + data.message;
-      restartBtn.classList.add("hidden");
+      case "error":
+        statusText.textContent = "Update failed: " + data.message;
+        restartBtn?.classList.add("hidden");
+        break;
     }
   });
 
   window.electronAPI.onUpdateProgress((data) => {
+    panel?.classList.remove("hidden");
     const percent = data.percent || 0;
-    const speed = data.speed || 0;
-
-    panel.classList.remove("hidden");
-    bar.style.width = percent + "%";
-    percentText.textContent = percent + "%";
-    speedText.textContent = Math.round(speed / 1024) + " KB/s";
+    bar.style.width = `${percent}%`;
+    percentText.textContent = `${percent}%`;
+    speedText.textContent = `${Math.round((data.speed || 0) / 1024)} KB/s`;
   });
 
   window.electronAPI.onInstallProgress((data) => {
+    panel?.classList.remove("hidden");
     const percent = data.percent || 0;
-
-    panel.classList.remove("hidden");
-
-    bar.style.width = percent + "%";
-
-    percentText.textContent = percent + "%";
-
+    bar.style.width = `${percent}%`;
+    percentText.textContent = `${percent}%`;
     speedText.textContent = "";
-
     statusText.textContent = "Installing update...";
   });
 
-  // Manual restart button
-  restartBtn.addEventListener("click", () => {
-    clearInterval(restartTimeout);
-    window.electronAPI.restartApp();
+  restartBtn?.addEventListener("click", () => {
+    window.electronAPI?.restartApp();
   });
 }
+
+// ============================================================
+// TOAST NOTIFICATIONS
+// ============================================================
 function showToast(message, type = "info") {
-  const container = document.getElementById("toastContainer");
+  const container = $("toastContainer");
+  if (!container) return;
+
+  const icons = { success: "✓", info: "ℹ", error: "✕" };
   const toast = document.createElement("div");
   toast.className = `toast toast-${type}`;
-  const icons = { success: "✓", info: "ℹ", error: "✕" };
-  toast.innerHTML = `<div class="toast-icon">${icons[type]}</div><div style="font-weight: 600; font-size: 13px;">${message}</div>`;
+  toast.innerHTML = `
+    <div class="toast-icon">${icons[type]}</div>
+    <div style="font-weight:600;font-size:13px">${message}</div>
+  `;
+
   container.appendChild(toast);
   requestAnimationFrame(() => toast.classList.add("show"));
+
   setTimeout(() => {
     toast.classList.remove("show");
     setTimeout(() => toast.remove(), 350);
   }, 3000);
 }
+
+// ============================================================
+// WINDOW CONTROLS
+// ============================================================
 function bindWindowControls() {
-  document
-    .getElementById("windowMinimizeButton")
-    ?.addEventListener("click", minimizeWindow);
-  document
-    .getElementById("windowMaximizeButton")
-    ?.addEventListener("click", maximizeWindow);
-  document
-    .getElementById("windowCloseButton")
-    ?.addEventListener("click", closeWindow);
+  $("windowMinimizeButton")?.addEventListener("click", minimizeWindow);
+  $("windowMaximizeButton")?.addEventListener("click", maximizeWindow);
+  $("windowCloseButton")?.addEventListener("click", closeWindow);
 }
+
+function minimizeWindow() {
+  window.electronAPI?.minimize
+    ? window.electronAPI.minimize()
+    : showToast("Minimized", "info");
+}
+
+function maximizeWindow() {
+  window.electronAPI?.maximize
+    ? window.electronAPI.maximize()
+    : showToast("Maximized", "info");
+}
+
+// ============================================================
+// EXIT CONFIRMATION MODAL
+// ============================================================
+function openExitModal() {
+  // Remove any existing exit modal first
+  closeExitModal();
+  
+  const overlay = document.createElement("div");
+  overlay.id = "exitModalOverlay";
+  overlay.className = "exit-modal-overlay";
+  
+  const isPlaying = State.currentlyPlaying !== null;
+  const gameName = isPlaying ? findGameById(State.currentlyPlaying.id)?.title : "";
+  
+  overlay.innerHTML = `
+    <div class="exit-modal">
+      <div class="exit-modal-header">
+        <div class="exit-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+            <polyline points="16 17 21 12 16 7"></polyline>
+            <line x1="21" y1="12" x2="9" y2="12"></line>
+          </svg>
+        </div>
+        <h3>Exit Launcher?</h3>
+      </div>
+      
+      <div class="exit-modal-body">
+        ${isPlaying ? `
+          <div class="exit-warning">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ff6b6b" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="8" x2="12" y2="12"></line>
+              <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+            <span><strong>${gameName}</strong> is currently running. Play time will be saved.</span>
+          </div>
+        ` : ""}
+        <p class="exit-message">Are you sure you want to close JLJGAMINGHOUSE Launcher?</p>
+      </div>
+      
+      <div class="exit-modal-actions">
+        <button class="exit-btn exit-btn-cancel" onclick="closeExitModal()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+          Cancel
+        </button>
+        <button class="exit-btn exit-btn-confirm" onclick="confirmExit()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+            <polyline points="16 17 21 12 16 7"></polyline>
+            <line x1="21" y1="12" x2="9" y2="12"></line>
+          </svg>
+          Exit Launcher
+        </button>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(overlay);
+  
+  // Trigger animation
+  requestAnimationFrame(() => {
+    overlay.classList.add("active");
+  });
+  
+  // Close on backdrop click
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) closeExitModal();
+  });
+  
+  // Close on Escape
+  const escHandler = (e) => {
+    if (e.key === "Escape") {
+      closeExitModal();
+      document.removeEventListener("keydown", escHandler);
+    }
+  };
+  document.addEventListener("keydown", escHandler);
+}
+
+function closeExitModal() {
+  const overlay = $("exitModalOverlay");
+  if (!overlay) return;
+  
+  overlay.classList.remove("active");
+  setTimeout(() => overlay.remove(), 300);
+}
+
+async function confirmExit() {
+  closeExitModal();
+  
+  if (State.currentlyPlaying) {
+    await stopPlaying();
+  }
+  
+  if (window.electronAPI?.close) {
+    window.electronAPI.close();
+  } else {
+    showToast("Closing...", "info");
+    document.body.style.transition = "opacity 0.5s ease";
+    document.body.style.opacity = "0";
+    
+    setTimeout(() => {
+      document.body.innerHTML = `
+        <div style="
+          display:flex;
+          justify-content:center;
+          align-items:center;
+          height:100vh;
+          background: #0a0a0f;
+          color: #888;
+          font-size: 16px;
+          font-family: 'Poppins', sans-serif;
+          opacity: 0;
+          animation: fadeIn 0.5s ease forwards;
+        ">
+          <div style="text-align: center;">
+            <div style="
+              width: 40px;
+              height: 40px;
+              border: 2px solid #333;
+              border-top-color: #6366f1;
+              border-radius: 50%;
+              margin: 0 auto 16px;
+              animation: spin 0.8s linear infinite;
+            "></div>
+            <p>JLJGAMINGHOUSE Closed</p>
+          </div>
+        </div>
+        <style>
+          @keyframes fadeIn { to { opacity: 1; } }
+          @keyframes spin { to { transform: rotate(360deg); } }
+        </style>
+      `;
+    }, 500);
+  }
+}
+
+// ============================================================
+// UPDATED closeWindow FUNCTION
+// ============================================================
+function closeWindow() {
+  openExitModal();
+}
+
+// ============================================================
+// CRUD CONTROLS BINDING
+// ============================================================
 function bindCrudControls() {
-  document.getElementById("loginButton")?.addEventListener("click", login);
-  document.getElementById("addGameButton")?.addEventListener("click", addGame);
-  document
-    .getElementById("confirmDeleteGameButton")
-    ?.addEventListener("click", delGame);
-  document
-    .getElementById("cancelDeleteGameButton")
-    ?.addEventListener("click", closeDeleteModal);
+  $("loginButton")?.addEventListener("click", login);
+  $("addGameButton")?.addEventListener("click", addGame);
+  $("confirmDeleteGameButton")?.addEventListener("click", delGame);
+  $("cancelDeleteGameButton")?.addEventListener("click", closeDeleteModal);
 }
+
+// ============================================================
+// GAME DATA HELPERS
+// ============================================================
 function sameId(left, right) {
   return String(left) === String(right);
 }
-function findGameById(gameId) { 
-  return allGames.find((g) => sameId(g.id, gameId));
+
+function findGameById(gameId) {
+  return State.allGames.find((g) => sameId(g.id, gameId));
 }
 
+// ============================================================
+// GAME LOADING & FILTERING
+// ============================================================
 async function loadGames() {
   try {
-    if (window.electronAPI && window.electronAPI.getGames) {
-      allGames = await window.electronAPI.getGames();
-    } else {
-      allGames = [];
-    }
+    State.allGames = window.electronAPI?.getGames
+      ? await window.electronAPI.getGames()
+      : [];
     applyFilters();
   } catch (error) {
     console.error("Failed to load games:", error);
@@ -171,11 +337,74 @@ async function loadGames() {
   }
 }
 
+function applyFilters() {
+  if (!Array.isArray(State.allGames)) State.allGames = [];
+
+  let filtered = [...State.allGames];
+
+  // Status filters
+  const filterMap = {
+    installed: (g) => g.status === "installed",
+    updates: (g) => g.status === "update",
+    favorites: (g) => g.isFavorite,
+    recent: (g) => g.lastPlayedTimestamp !== null,
+  };
+
+  if (filterMap[State.currentFilter]) {
+    filtered = filtered.filter(filterMap[State.currentFilter]);
+  }
+
+  // Search filter
+  if (State.currentSearch) {
+    filtered = filtered.filter((g) =>
+      g.title.toLowerCase().includes(State.currentSearch),
+    );
+  }
+
+  renderGames(filtered);
+}
+
+function searchGames() {
+  State.currentSearch = $("searchInput")?.value.toLowerCase() || "";
+  applyFilters();
+}
+
+function filterGames(filter, btn) {
+  State.currentFilter = filter;
+
+  $$(".tab-btn").forEach((b) => b.classList.remove("active"));
+  btn?.classList.add("active");
+
+  const titles = {
+    all: "All Games",
+    installed: "Installed Games",
+    updates: "Updates Available",
+    favorites: "Favorite Games",
+    recent: "Recently Played",
+  };
+
+  const el = $("gamesSectionTitle");
+  if (el) el.textContent = titles[filter] || "Games";
+
+  applyFilters();
+}
+
+function changeRows(rows) {
+  State.currentRows = parseInt(rows);
+  const grid = $("gamesGrid");
+  if (!grid) return;
+
+  grid.classList.remove("rows-2", "rows-3", "rows-4", "rows-5", "rows-6");
+  grid.classList.add(`rows-${State.currentRows}`);
+}
+
+// ============================================================
+// FORMATTING UTILITIES
+// ============================================================
 function formatTimeAgo(timestamp) {
   if (!timestamp) return "Never";
-  const now = Date.now();
-  const diff = now - timestamp;
-  const seconds = Math.floor(diff / 1000);
+
+  const seconds = Math.floor((Date.now() - timestamp) / 1000);
   const minutes = Math.floor(seconds / 60);
   const hours = Math.floor(minutes / 60);
   const days = Math.floor(hours / 24);
@@ -186,6 +415,7 @@ function formatTimeAgo(timestamp) {
   if (days < 7) return `${days} day${days > 1 ? "s" : ""} ago`;
   if (days < 30)
     return `${Math.floor(days / 7)} week${Math.floor(days / 7) > 1 ? "s" : ""} ago`;
+
   return new Date(timestamp).toLocaleDateString();
 }
 
@@ -204,18 +434,29 @@ function formatPlayTime(minutes) {
   return `${h}h ${m}m`;
 }
 
+// ============================================================
+// RENDERING
+// ============================================================
 function renderGames(gamesToRender) {
-  const grid = document.getElementById("gamesGrid");
+  const grid = $("gamesGrid");
+  if (!grid) return;
+
   if (gamesToRender.length === 0) {
-    grid.innerHTML =
-      '<div class="empty-state" style="grid-column: 1/-1;"><h3>No games found</h3><p>Try adjusting your search or filters</p></div>';
+    grid.innerHTML = `
+      <div class="empty-state" style="grid-column:1/-1">
+        <h3>No games found</h3>
+        <p>Try adjusting your search or filters</p>
+      </div>
+    `;
     return;
   }
+
   grid.innerHTML = gamesToRender
     .map((game) => {
       const gameId = JSON.stringify(game.id);
       const isPlaying =
-        currentlyPlaying && sameId(currentlyPlaying.id, game.id);
+        State.currentlyPlaying && sameId(State.currentlyPlaying.id, game.id);
+
       const statusBadge = isPlaying
         ? '<span class="status-badge status-playing">Playing</span>'
         : game.status === "update"
@@ -223,227 +464,178 @@ function renderGames(gamesToRender) {
           : game.status === "installed"
             ? '<span class="status-badge status-installed">Ready</span>'
             : "";
+
+      const ownerActions = State.isOwnerLoggedIn
+        ? `
+      <div class="game-actions">
+        <button class="action-btn" onclick='event.stopPropagation();toggleFavorite(${gameId})' 
+          title="${game.isFavorite ? "Remove from favorites" : "Add to favorites"}">
+          ${game.isFavorite ? "★" : "☆"}
+        </button>
+        <button class="action-btn delete" onclick='event.stopPropagation();openDeleteModal(${gameId})' title="Delete game">
+          🗑
+        </button>
+      </div>
+    `
+        : "";
+
       return `
-        <div class="game-card" data-title="${game.title.toLowerCase()}">
-            <div class="game-cover" onclick='launchGameById(${gameId})'>
-                <img src="${game.cover}" alt="${game.title}" loading="lazy">
-                ${statusBadge}
-                <div class="play-btn-overlay"><svg width="20" height="20" fill="black" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div>
-                <div class="game-overlay"><div style="font-size: 11px; color: var(--text-muted); margin-bottom: 3px;">${formatTimeAgo(game.lastPlayedTimestamp)}</div><div style="font-size: 13px; font-weight: 600;">${formatHours(game.totalMinutes)} played</div></div>
-            </div>
-            <div class="game-info">
-                <h4 class="game-title">${game.title}</h4>
-                <div class="game-meta"><span>${game.genre}</span><span>${formatHours(game.totalMinutes)}</span></div>
-                <div class="game-tags"><span class="tag">${game.genre}</span>${game.status === "installed" ? '<span class="tag">Installed</span>' : ""}${game.isFavorite ? '<span class="tag">★ Favorite</span>' : ""}${game.status === "update" ? '<span class="tag" style="color:#ff6b6b;border-color:rgba(255,50,50,0.3)">Update Available</span>' : ""}</div>
-                <div class="game-card-actions">
-                  <button class="card-btn play"
-                      onclick='event.stopPropagation(); launchGameById(${gameId})'>
-                      ▶ Play
-                  </button> 
-                  <button class="card-btn host"
-                      onclick='event.stopPropagation(); openHostModal(${JSON.stringify(game)})'>
-                      🌐 Host
-                  </button>
-              </div>
-            </div> 
-            ${
-              isOwnerLoggedIn
-                ? `
-            <div class="game-actions">
-                <button class="action-btn" onclick='event.stopPropagation(); toggleFavorite(${gameId})' title="${game.isFavorite ? "Remove from favorites" : "Add to favorites"}">${game.isFavorite ? "★" : "☆"}</button>
-                <button class="action-btn delete" onclick='event.stopPropagation(); openDeleteModal(${gameId})' title="Delete game">🗑</button>
-            </div>
-            `
-                : ""
-            }
+      <div class="game-card" data-title="${game.title.toLowerCase()}">
+        <div class="game-cover" onclick='launchGameById(${gameId})'>
+          <img src="${game.cover}" alt="${game.title}" loading="lazy">
+          ${statusBadge}
+          <div class="play-btn-overlay">
+            <svg width="20" height="20" fill="black" viewBox="0 0 24 24">
+              <path d="M8 5v14l11-7z"/>
+            </svg>
+          </div>
+          <div class="game-overlay">
+            <div style="font-size:11px;color:var(--text-muted);margin-bottom:3px">${formatTimeAgo(game.lastPlayedTimestamp)}</div>
+            <div style="font-size:13px;font-weight:600">${formatHours(game.totalMinutes)} played</div>
+          </div>
         </div>
+        <div class="game-info">
+          <h4 class="game-title">${game.title}</h4>
+          <div class="game-meta">
+            <span>${game.genre}</span>
+            <span>${formatHours(game.totalMinutes)}</span>
+          </div>
+          <div class="game-tags">
+            <span class="tag">${game.genre}</span>
+            ${game.status === "installed" ? '<span class="tag">Installed</span>' : ""}
+            ${game.isFavorite ? '<span class="tag">★ Favorite</span>' : ""}
+            ${game.status === "update" ? '<span class="tag" style="color:#ff6b6b;border-color:rgba(255,50,50,0.3)">Update Available</span>' : ""}
+          </div>
+          <div class="game-card-actions">
+            <button class="card-btn play" onclick='event.stopPropagation();launchGameById(${gameId})'>▶ Play</button>
+            <button class="card-btn host" onclick='event.stopPropagation();openHostModal(${JSON.stringify(game)})'>🌐 Host</button>
+          </div>
+        </div>
+        ${ownerActions}
+      </div>
     `;
     })
     .join("");
 }
 
-function changeRows(rows) {
-  currentRows = parseInt(rows);
-  const grid = document.getElementById("gamesGrid");
-  grid.classList.remove("rows-2", "rows-3", "rows-4", "rows-5", "rows-6");
-  grid.classList.add(`rows-${currentRows}`);
-}
-
-function applyFilters() {
-  if (!Array.isArray(allGames)) allGames = [];
-  let filtered = [...allGames]; // safer copy
-  if (currentFilter === "installed")
-    filtered = filtered.filter((g) => g.status === "installed");
-  else if (currentFilter === "updates")
-    filtered = filtered.filter((g) => g.status === "update");
-  else if (currentFilter === "favorites")
-    filtered = filtered.filter((g) => g.isFavorite);
-  else if (currentFilter === "recent")
-    filtered = filtered.filter((g) => g.lastPlayedTimestamp !== null);
-  if (currentSearch)
-    filtered = filtered.filter((g) =>
-      g.title.toLowerCase().includes(currentSearch),
-    );
- 
-  renderGames(filtered);
-}
-
-function searchGames() {
-  currentSearch = document.getElementById("searchInput").value.toLowerCase();
-  applyFilters();
-}
-
-function filterGames(filter, btn) { 
-  currentFilter = filter;
-  document
-    .querySelectorAll(".tab-btn")
-    .forEach((b) => b.classList.remove("active"));
-  btn.classList.add("active");
-  const titles = {
-    all: "All Games",
-    installed: "Installed Games",
-    updates: "Updates Available",
-    favorites: "Favorite Games",
-    recent: "Recently Played",
-  };
-  const el = document.getElementById("gamesSectionTitle");
-  if (el) el.textContent = titles[filter] || "Games";
-   
-  applyFilters();
-}
-
-function switchTab(element, tab) {
-  document
-    .querySelectorAll(".nav-item")
-    .forEach((item) => item.classList.remove("active"));
-  element.classList.add("active");
-}
-
-// Replace the old launchGameById and timer functions with these:
-
-async function launchGameById(gameId) { 
+// ============================================================
+// GAME LAUNCHING & PLAY TIME TRACKING
+// ============================================================
+async function launchGameById(gameId) {
   const game = findGameById(gameId);
   if (!game) {
     showToast("Game not found", "error");
     return;
   }
 
-  // If already playing this game, do nothing
-  if (currentlyPlaying && sameId(currentlyPlaying.id, gameId)) {
+  // Already playing this game?
+  if (State.currentlyPlaying && sameId(State.currentlyPlaying.id, gameId)) {
     showToast(`${game.title} is already running`, "info");
     return;
   }
 
-  // If playing another game, stop it first
-  if (currentlyPlaying) {
+  // Stop current game first
+  if (State.currentlyPlaying) {
     await stopPlaying();
   }
 
-  if (game.exePath && game.exePath.trim() !== "") {
-    showToast(`Launching ${game.title}...`, "success");
-
-    // Start play timer locally for UI
-    startPlayTimer(game);
-
-    // Launch with process monitoring (pass gameId)
-    if (window.electronAPI && window.electronAPI.launchGame) {
-      window.electronAPI.launchGame(
-        game.id,
-        game.launchMethod,
-        game.appId,
-        game.title,
-      );
-    } else {
-      showToast(`Would launch: ${game.exePath}`, "info");
-      console.log("Launching:", game.exePath);
-    }
-
-    // Update last played
-    const now = Date.now();
-    game.lastPlayedTimestamp = now;
-    game.lastPlayed = "Just now";
-
-    try {
-      if (window.electronAPI && window.electronAPI.updateGame) {
-        await window.electronAPI.updateGame(game.id, {
-          lastPlayedTimestamp: now,
-          lastPlayed: "Just now",
-        });
-        if (game.status == "update") {
-          await window.electronAPI.updateGame(game.id, {
-            status: "installed",
-            version: game.setLatestVersion,
-          });
-        }
-      }
-      applyFilters();
-    } catch (e) {
-      console.error("Failed to update last played:", e);
-    }
-  } else {
+  if (!game.exePath?.trim()) {
     showToast(`No executable path set for ${game.title}`, "error");
     showToast("Owner needs to add EXE path", "info");
+    return;
+  }
+
+  showToast(`Launching ${game.title}...`, "success");
+  startPlayTimer(game);
+
+  if (window.electronAPI?.launchGame) {
+    window.electronAPI.launchGame(
+      game.id,
+      game.launchMethod,
+      game.appId,
+      game.title,
+    );
+  } else {
+    showToast(`Would launch: ${game.exePath}`, "info");
+    console.log("Launching:", game.exePath);
+  }
+
+  // Update last played
+  const now = Date.now();
+  game.lastPlayedTimestamp = now;
+  game.lastPlayed = "Just now";
+
+  try {
+    if (window.electronAPI?.updateGame) {
+      await window.electronAPI.updateGame(game.id, {
+        lastPlayedTimestamp: now,
+        lastPlayed: "Just now",
+      });
+
+      if (game.status === "update") {
+        await window.electronAPI.updateGame(game.id, {
+          status: "installed",
+          version: game.setLatestVersion,
+        });
+      }
+    }
+    applyFilters();
+  } catch (e) {
+    console.error("Failed to update last played:", e);
   }
 }
 
 function startPlayTimer(game) {
-  currentlyPlaying = {
+  State.currentlyPlaying = {
     id: game.id,
     startTime: Date.now(),
     startTotalMinutes: game.totalMinutes || 0,
   };
 
-  // Show playing indicator
-  document.getElementById("playingGameName").textContent = game.title;
-  document.getElementById("playingIndicator").classList.add("active");
+  $("playingGameName").textContent = game.title;
+  $("playingIndicator")?.classList.add("active");
 
-  // Update timer every second
-  playTimerInterval = setInterval(async () => {
-    if (!currentlyPlaying) return;
+  State.playTimerInterval = setInterval(async () => {
+    if (!State.currentlyPlaying) return;
 
-    // Get accurate elapsed time from main process if available
     let elapsedSeconds = 0;
-    if (window.electronAPI && window.electronAPI.getElapsedTime) {
+    if (window.electronAPI?.getElapsedTime) {
       try {
         elapsedSeconds = await window.electronAPI.getElapsedTime(game.id);
       } catch (e) {
         elapsedSeconds = Math.floor(
-          (Date.now() - currentlyPlaying.startTime) / 1000,
+          (Date.now() - State.currentlyPlaying.startTime) / 1000,
         );
       }
     } else {
       elapsedSeconds = Math.floor(
-        (Date.now() - currentlyPlaying.startTime) / 1000,
+        (Date.now() - State.currentlyPlaying.startTime) / 1000,
       );
     }
 
     const totalMinutes =
-      currentlyPlaying.startTotalMinutes + Math.floor(elapsedSeconds / 60);
-    document.getElementById("playingTime").textContent =
-      formatPlayTime(totalMinutes);
+      State.currentlyPlaying.startTotalMinutes +
+      Math.floor(elapsedSeconds / 60);
+    $("playingTime").textContent = formatPlayTime(totalMinutes);
   }, 1000);
 
-  // Re-render to show "Playing" badge
   applyFilters();
 }
 
 async function stopPlaying() {
-  if (!currentlyPlaying) return;
+  if (!State.currentlyPlaying) return;
 
-  const gameId = currentlyPlaying.id;
+  const gameId = State.currentlyPlaying.id;
 
-  // Tell main process to stop tracking
-  if (window.electronAPI && window.electronAPI.stopGame) {
+  if (window.electronAPI?.stopGame) {
     window.electronAPI.stopGame(gameId);
   }
 
-  // Clear local timer
-  clearInterval(playTimerInterval);
-  playTimerInterval = null;
+  clearInterval(State.playTimerInterval);
+  State.playTimerInterval = null;
 
-  // Calculate final time locally too (fallback)
   const elapsedMinutes = Math.floor(
-    (Date.now() - currentlyPlaying.startTime) / 60000,
+    (Date.now() - State.currentlyPlaying.startTime) / 60000,
   );
   const game = findGameById(gameId);
 
@@ -456,54 +648,61 @@ async function stopPlaying() {
     );
   }
 
-  currentlyPlaying = null;
-  document.getElementById("playingIndicator").classList.remove("active");
+  State.currentlyPlaying = null;
+  $("playingIndicator")?.classList.remove("active");
   applyFilters();
 }
 
-// Listen for game stopped event from main process (auto-detect)
-if (window.electronAPI && window.electronAPI.onGameStopped) {
-  window.electronAPI.onGameStopped((data) => { 
+// Listen for game stopped from main process
+if (window.electronAPI?.onGameStopped) {
+  window.electronAPI.onGameStopped((data) => {
+    if (
+      !State.currentlyPlaying ||
+      !sameId(State.currentlyPlaying.id, data.gameId)
+    )
+      return;
 
-    // If this is the currently playing game, update UI
-    if (currentlyPlaying && sameId(currentlyPlaying.id, data.gameId)) {
-      clearInterval(playTimerInterval);
-      playTimerInterval = null;
-      currentlyPlaying = null;
-      document.getElementById("playingIndicator").classList.remove("active");
+    clearInterval(State.playTimerInterval);
+    State.playTimerInterval = null;
+    State.currentlyPlaying = null;
+    $("playingIndicator")?.classList.remove("active");
 
-      // Update local game data
-      const game = findGameById(data.gameId);
-      if (game) {
-        game.totalMinutes = data.totalMinutes;
-        game.hours = data.hours;
-        game.lastPlayed = "Just now";
-        game.lastPlayedTimestamp = Date.now();
-      }
-
-      showToast(
-        `Game closed. Played for ${formatPlayTime(data.elapsedMinutes)}`,
-        "success",
-      );
-      applyFilters();
+    const game = findGameById(data.gameId);
+    if (game) {
+      game.totalMinutes = data.totalMinutes;
+      game.hours = data.hours;
+      game.lastPlayed = "Just now";
+      game.lastPlayedTimestamp = Date.now();
     }
+
+    showToast(
+      `Game closed. Played for ${formatPlayTime(data.elapsedMinutes)}`,
+      "success",
+    );
+    applyFilters();
   });
 }
 
+// ============================================================
+// FAVORITES
+// ============================================================
 async function toggleFavorite(gameId) {
   const game = findGameById(gameId);
   if (!game) return;
+
   const newFavorite = !game.isFavorite;
+
   try {
-    if (window.electronAPI && window.electronAPI.updateGame) {
+    if (window.electronAPI?.updateGame) {
       const updated = await window.electronAPI.updateGame(gameId, {
         isFavorite: newFavorite,
       });
       if (!updated) throw new Error(`Game ${gameId} was not found in JSON`);
-      games = await window.electronAPI.getGames();
+      State.games = await window.electronAPI.getGames();
     } else {
       game.isFavorite = newFavorite;
     }
+
     applyFilters();
     showToast(
       newFavorite ? "Added to favorites" : "Removed from favorites",
@@ -515,35 +714,29 @@ async function toggleFavorite(gameId) {
   }
 }
 
-function openExternal(url) {
-  showToast(`Opening ${url}...`, "info");
-  if (window.electronAPI && window.electronAPI.openExternal) {
-    window.electronAPI.openExternal(url);
-  } else {
-    window.open(url, "_blank");
-  }
-}
-
-
-/* login */
+// ============================================================
+// AUTHENTICATION
+// ============================================================
 async function login() {
-  const username = document.getElementById("loginUsername").value.trim();
-  const password = document.getElementById("loginPassword").value.trim();
+  const username = $("loginUsername")?.value.trim();
+  const password = $("loginPassword")?.value.trim();
+
+  if (!username || !password) {
+    showToast("Please enter credentials", "error");
+    return;
+  }
 
   try {
-    let valid = false;
-    if (window.electronAPI && window.electronAPI.verifyOwner) {
-      valid = await window.electronAPI.verifyOwner(username, password);
-    } else {
-      valid = username === "jldems" && password === "0925";
-    }
+    const valid = window.electronAPI?.verifyOwner
+      ? await window.electronAPI.verifyOwner(username, password)
+      : username === "jldems" && password === "0925";
 
     if (valid) {
-      isOwnerLoggedIn = true;
+      State.isOwnerLoggedIn = true;
       closeLoginModal();
-      document.getElementById("loginText").textContent = "Logout";
-      document.getElementById("ownerBadge").style.display = "inline-flex";
-      document.getElementById("addGameNav").style.display = "flex";
+      $("loginText").textContent = "Logout";
+      $("ownerBadge").style.display = "inline-flex";
+      $("addGameNav").style.display = "flex";
       showToast("Owner logged in successfully", "success");
       applyFilters();
     } else {
@@ -554,104 +747,245 @@ async function login() {
     showToast("Login failed", "error");
   }
 }
+
 function openLoginModal() {
-  if (isOwnerLoggedIn) {
+  if (State.isOwnerLoggedIn) {
     logout();
     return;
   }
-  document.getElementById("loginModal").classList.add("active");
-}
-function closeLoginModal() {
-  document.getElementById("loginModal").classList.remove("active");
-  document.getElementById("loginUsername").value = "";
-  document.getElementById("loginPassword").value = "";
+  $("loginModal")?.classList.add("active");
 }
 
-/* logout */
+function closeLoginModal() {
+  $("loginModal")?.classList.remove("active");
+  $("loginUsername").value = "";
+  $("loginPassword").value = "";
+}
+
 function logout() {
-  // Stop any active game
-  if (currentlyPlaying) {
-    stopPlaying();
-  }
-  isOwnerLoggedIn = false;
-  document.getElementById("loginText").textContent = "Owner Login";
-  document.getElementById("ownerBadge").style.display = "none";
-  document.getElementById("addGameNav").style.display = "none";
+  if (State.currentlyPlaying) stopPlaying();
+
+  State.isOwnerLoggedIn = false;
+  $("loginText").textContent = "Owner Login";
+  $("ownerBadge").style.display = "none";
+  $("addGameNav").style.display = "none";
   applyFilters();
   showToast("Logged out", "info");
 }
 
+// ============================================================
+// GAME CRUD
+// ============================================================
 function openAddGameModal() {
-  if (!isOwnerLoggedIn) {
+  if (!State.isOwnerLoggedIn) {
     showToast("Owner login required", "error");
     return;
   }
-  document.getElementById("addGameModal").classList.add("active");
+  $("addGameModal")?.classList.add("active");
 }
+
 function closeAddGameModal() {
-  document.getElementById("addGameModal").classList.remove("active");
-  document.getElementById("gameTitle").value = "";
-  document.getElementById("gameGenre").value = "";
-  document.getElementById("gameCover").value = "";
-  document.getElementById("gameExeManual").value = "";
+  $("addGameModal")?.classList.remove("active");
+  $("gameTitle").value = "";
+  $("gameGenre").value = "";
+  $("gameCoverUpload").value = ""; // Changed from gameCover to gameCoverUpload
+  $("gameExeManual").value = "";
+
+  // Also reset app ID and launch method if needed
+  $("gameAppId").value = "";
+  $("gameLaunchMethod").value = "direct";
+  $("gameHostSetup").value = "no";
+  $("appIdGroup").style.display = "none";
 }
 
-/* host */
+async function addGame() {
+  if (!State.isOwnerLoggedIn) {
+    showToast("Owner login required", "error");
+    return;
+  }
+
+  const title = $("gameTitle")?.value.trim();
+  const genre = $("gameGenre")?.value;
+  const manualPath = $("gameExeManual")?.value.trim();
+  const launchMethod = $("gameLaunchMethod")?.value;
+  const hostSetup = $("gameHostSetup")?.value;
+  const appId = $("gameAppId")?.value.trim();
+  const coverFile = $("gameCoverUpload")?.files[0];
+
+  if (!title) return showToast("Please enter a game title", "info");
+  if (!genre) return showToast("Please select a genre", "info");
+  if (!manualPath) return showToast("Please enter an executable path", "info");
+
+  // Default fallback cover if no image uploaded
+  let cover =
+    "https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=400&h=600&fit=crop&q=80";
+
+  // Handle cover image upload
+  if (coverFile) {
+    try {
+      const gameDir = manualPath.substring(0, manualPath.lastIndexOf("\\"));
+      const ext = coverFile.name.split(".").pop();
+      const coverFileName = `cover.${ext}`;
+
+      // Read file as base64
+      const base64Data = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result.split(",")[1]); // Remove data:image/... prefix
+        reader.onerror = reject;
+        reader.readAsDataURL(coverFile);
+      });
+
+      // Send to main process to save file
+      if (!window.electronAPI?.saveCoverImage) {
+        throw new Error("saveCoverImage API not available");
+      } 
+      const savedPath = await window.electronAPI.saveCoverImage({
+        gameDir,
+        fileName: coverFileName,
+        data: base64Data,
+        ext: ext,
+      });
+
+      cover = savedPath;
+    } catch (err) {
+      console.error("Failed to save cover image:", err);
+      showToast("Failed to save cover image, using default", "warning");
+    }
+  } 
+
+  const newGame = {
+    title,
+    cover,
+    genre,
+    hours: "0h",
+    totalMinutes: 0,
+    status: "installed",
+    lastPlayed: "Never",
+    lastPlayedTimestamp: null,
+    isFavorite: false,
+    exePath: manualPath,
+    detectedExePath: "",
+    launchMethod,
+    HostSetup: hostSetup,
+    appId,
+    version: "1.0.0",
+    latestVersion: "1.0.0",
+  };
+
+  try {
+    if (!window.electronAPI?.addGame) {
+      throw new Error(
+        "Electron API is unavailable. Restart the launcher and check preload setup.",
+      );
+    }
+
+    const result = await window.electronAPI.addGame(newGame);
+    State.games = await window.electronAPI.getGames();
+    State.allGames = State.games;
+    applyFilters();
+    closeAddGameModal();
+    showToast(`${result.title} added to library`, "success");
+  } catch (error) {
+    console.error("Failed to add game:", error);
+    showToast("Failed to add game to JSON", "error");
+  }
+}
+
+function openDeleteModal(gameId) {
+  const game = findGameById(gameId);
+  if (!game) return;
+
+  State.gameToDelete = gameId;
+  $("deleteGameName").textContent = game.title;
+  $("deleteModal")?.classList.add("active");
+}
+
+function closeDeleteModal() {
+  $("deleteModal")?.classList.remove("active");
+  State.gameToDelete = null;
+}
+
+async function delGame() {
+  if (!State.gameToDelete) return;
+
+  if (
+    State.currentlyPlaying &&
+    sameId(State.currentlyPlaying.id, State.gameToDelete)
+  ) {
+    showToast("Stop the game before deleting it", "error");
+    closeDeleteModal();
+    return;
+  }
+
+  try {
+    if (window.electronAPI?.deleteGame) {
+      const deleted = await window.electronAPI.deleteGame(State.gameToDelete);
+      if (!deleted)
+        throw new Error(`Game ${State.gameToDelete} was not found in JSON`);
+      State.games = await window.electronAPI.getGames();
+    } else {
+      State.games = State.games.filter(
+        (g) => !sameId(g.id, State.gameToDelete),
+      );
+    }
+    State.allGames = State.games;
+    applyFilters();
+    showToast("Game deleted", "success");
+    closeDeleteModal();
+  } catch (error) {
+    console.error("Failed to delete game:", error);
+    showToast("Failed to delete game from JSON", "error");
+  }
+}
+
+// ============================================================
+// HOSTING / MULTIPLAYER
+// ============================================================
 async function openHostModal(game) {
-  currentHostGame = game; 
-  const roomobj = JSON.parse(localStorage.getItem("roominfo"));  
-  const playername = roomobj ? roomobj.host.playerName : "";
-  const gamemap =  roomobj ? roomobj.host.map : "";
-  
-  const title = (game.title || "").toLowerCase();
+  State.currentHostGame = game;
+  const roomObj = JSON.parse(localStorage.getItem("roominfo") || "null");
+  const playerName = roomObj?.host?.playerName || "";
+  const gameMap = roomObj?.host?.map || "";
 
-  const mapGroup = document.getElementById("mapGroup");
-  const playerNameGroup = document.getElementById("playerNameGroup");
-
-  if (!title.includes("left 4 dead 2") && !title.includes("nba 2k14")) {
+  if (!game.title?.toLowerCase().includes("left 4 dead 2")) {
     showToast("Hosting is not available for this game.", "error");
     return;
   }
 
-  // Show only for Left 4 Dead 2
-  if (title.includes("left 4 dead 2")) {
-    mapGroup.style.display = "block";
-    playerNameGroup.classList.remove("full-width"); 
-    await loadMaps(); 
-  } else {
-    mapGroup.style.display = "none";
-    playerNameGroup.classList.add("full-width");
-  }
+  const mapGroup = $("mapGroup");
+  const playerNameGroup = $("playerNameGroup");
 
-  document.getElementById("hostModal").classList.add("active");
-  document.getElementById("hostGameCover").src = game.cover;
-  document.getElementById("hostGameTitle").textContent = game.title;
-  document.getElementById("hostGameGenre").textContent = game.genre;
-  document.getElementById("hostGameStatus").textContent = game.status;
-  document.getElementById("hostGameVersion").textContent = `v${game.version}`;
-  document.getElementById("hostGameExe").textContent = game.exePath; 
-  document.getElementById("hostPlayerName").value = playername;
-  document.getElementById("hostGameMap").value = gamemap; 
+  mapGroup.style.display = "block";
+  playerNameGroup?.classList.remove("full-width");
+  await loadMaps();
+
+  $("hostModal")?.classList.add("active");
+  $("hostGameCover").src = game.cover;
+  $("hostGameTitle").textContent = game.title;
+  $("hostGameGenre").textContent = game.genre;
+  $("hostGameStatus").textContent = game.status;
+  $("hostGameVersion").textContent = `v${game.version}`;
+  $("hostGameExe").textContent = game.exePath;
+  $("hostPlayerName").value = playerName;
+  $("hostGameMap").value = gameMap;
 
   await refreshRooms();
 }
+
 function closeHostModal() {
-  document.getElementById("hostModal").classList.remove("active"); 
+  $("hostModal")?.classList.remove("active");
 }
-// Fetch and populate the map dropdown
+
 async function loadMaps() {
   try {
     const response = await fetch("left4dead2maps.json");
     const data = await response.json();
+    State.cachedMaps = data.maps;
 
-    cachedMaps = data.maps; // store globally
+    const select = $("hostGameMap");
+    if (!select) return;
 
-    const select = document.getElementById("hostGameMap");
-
-    // Reset dropdown
     select.innerHTML = '<option value="">Select a map...</option>';
-
-    // Populate with campaign maps
     data.maps.forEach((map) => {
       const option = document.createElement("option");
       option.value = map.value;
@@ -659,74 +993,63 @@ async function loadMaps() {
       select.appendChild(option);
     });
 
-    return cachedMaps;
+    return State.cachedMaps;
   } catch (error) {
     console.error("Failed to load maps:", error);
     showToast("Failed to load maps", "error");
   }
-} 
-// Create room with validation
-async function createRoom() { 
-  if (!currentHostGame) return;
+}
 
-  let btn = document.querySelector(".btn-create-room");
+async function createRoom() {
+  if (!State.currentHostGame) return;
 
-  try {
-    const playerName = document.getElementById("hostPlayerName").value.trim();
+  const btn = document.querySelector(".btn-create-room");
+  const playerName = $("hostPlayerName")?.value.trim();
 
-    if (!playerName) {
-      showToast("Please enter your name", "error");
+  if (!playerName) {
+    showToast("Please enter your name", "error");
+    return;
+  }
+
+  const hostId = getOrCreateHostId();
+  const payload = {
+    gameId: State.currentHostGame.id,
+    title: State.currentHostGame.title,
+    playerName,
+    hostId,
+    map: "",
+    mapname: "",
+  };
+
+  // L4D2 map selection
+  if (State.currentHostGame.title.toLowerCase().includes("left 4 dead 2")) {
+    const map = $("hostGameMap")?.value;
+    if (!map) {
+      showToast("Please select a map", "error");
       return;
     }
-    const hostId = getOrCreateHostId();
+    payload.map = map;
+    payload.mapname = State.cachedMaps.find((m) => m.value === map)?.label;
+  } 
 
-    let payload = {
-      gameId: currentHostGame.id,
-      title: currentHostGame.title,
-      playerName,
-      hostId,
-      map: "",
-      mapname: "", 
-    };
+  setLoadingButton(btn, true, "Creating...");
 
-    if (currentHostGame.title.toLowerCase().includes("left 4 dead 2")) {
-      const map = document.getElementById("hostGameMap").value;
-      if (!map) {
-        showToast("Please select a map", "error");
-        return;
-      }
-      const selectedMap = cachedMaps.find((m) => m.value === map)?.label;
+  try {
+    const result = await window.electronAPI.createRoom(payload);
 
-      payload.map = map;
-      payload.mapname = selectedMap;
-    }
-
-    // NBA 2K14 → ENABLE PARSEC FLAG
-    if (currentHostGame.title.toLowerCase().includes("nba 2k14")) { 
-
-      await window.electronAPI.startSunshine();
-      showToast("Sunshine started", "success");
-    } 
-
-    setLoadingButton(btn, true, "Creating...");
-
-    // Call Electron main process to create room
-    const result = await window.electronAPI.createRoom(payload); 
     if (result.success) {
-      localStorage.setItem("roominfo", JSON.stringify(result.room)); 
-      refreshRooms(); 
-      
+      localStorage.setItem("roominfo", JSON.stringify(result.room));
+      refreshRooms();
+
       await window.electronAPI.launchGameAsHost({
-        gameId: currentHostGame.id,
-        exePath: currentHostGame.exePath,
-        title: currentHostGame.title,
+        gameId: State.currentHostGame.id,
+        exePath: State.currentHostGame.exePath,
+        title: State.currentHostGame.title,
         map: payload.map,
         playerName,
       });
 
       showToast(`Room created! ${result.room.url}`, "success");
-
-      // Store current room ID for later
       window.currentRoomId = result.room.id;
     }
   } catch (error) {
@@ -736,126 +1059,129 @@ async function createRoom() {
     setLoadingButton(btn, false);
   }
 }
-// Display the hosted room in Active Rooms section
-function renderHostRoom(rooms) {  
- 
-  const roomsList = document.getElementById("roomsList");
-  const myHostId = localStorage.getItem("hostId"); 
+
+function renderHostRoom(rooms) {
+  const roomsList = $("roomsList");
+  const myHostId = localStorage.getItem("hostId");
+
   const filteredRooms = rooms.filter(
-    (room) => room.host.gameId === currentHostGame.id,
+    (room) => room.host.gameId === State.currentHostGame?.id,
   );
 
-  roomsList.innerHTML =
-    filteredRooms.length === 0
-      ? `
-      <div style="text-align: center; color: var(--text-muted); padding: 20px;">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom: 10px; opacity: 0.3;">
-              <circle cx="11" cy="11" r="8"/>
-              <path d="M21 21l-4.35-4.35"/>
-          </svg>
-          <p style="font-size: 12px;">No active sessions found</p>
+  if (filteredRooms.length === 0) {
+    roomsList.innerHTML = `
+      <div style="text-align:center;color:var(--text-muted);padding:20px">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom:10px;opacity:0.3">
+          <circle cx="11" cy="11" r="8"/>
+          <path d="M21 21l-4.35-4.35"/>
+        </svg>
+        <p style="font-size:12px">No active sessions found</p>
+      </div>
+    `;
+    return;
+  }
+
+  roomsList.innerHTML = filteredRooms
+    .map((room) => {
+      const isOwner = room.host.hostId === myHostId;
+
+      const actionButton = !isOwner
+        ? `<button class="btn" style="padding:4px 10px;font-size:11px" onclick="copyToClipboard('${room.url}')">Copy</button>`
+        : `<button class="btn" style="padding:4px 10px;font-size:11px" onclick='event.stopPropagation();joinRoom(${JSON.stringify(room)})'>Join</button>`;
+
+      const ownerControls = isOwner
+        ? `
+      <div style="display:flex;gap:8px">
+        <button onclick="closeCurrentRoom()" class="btn btn-danger" style="flex:1;font-size:11px">Close Room</button>
       </div>
     `
-    : filteredRooms
-        .map((room) => {
-          const isOwner = room.host.hostId === myHostId;
+        : "";
 
-          return `
-          <div style="padding: 16px; width: 100%;">
-              <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
-                  <div>
-                      <div style="font-size: 13px; font-weight: 600; color: var(--text-primary); margin-bottom: 2px;">
-                          ${room.host.playerName}'s Room
-                      </div>
-                      <div style="font-size: 11px; color: var(--text-muted);">
-                          ${room.host.pcName} • ${room.host.mapname}
-                      </div>
-                  </div>
-                  <span style="font-size: 10px; padding: 3px 8px; background: rgba(50, 255, 50, 0.15); color: #6bff6b; border-radius: 20px; border: 1px solid rgba(50, 255, 50, 0.3);">
-                      HOSTING
-                  </span>
-              </div>
-              
-              <div style="background: var(--bg-hover); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; margin-bottom: 12px;">
-                  <div style="font-size: 10px; color: var(--text-muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;">Room URL</div>
-                  <div style="display: flex; gap: 8px; align-items: center;">
-                      <code style="font-size: 12px; color: var(--text-primary); flex: 1; overflow: hidden; text-overflow: ellipsis;">
-                          ${room.url}
-                      </code>
-
-                      ${
-                        !isOwner
-                          ? `<button class="btn" style="padding: 4px 10px; font-size: 11px;" onclick="joinRoom('${room.host.streamType}', '${room.host.sunshineHost}')">Join</button>`
-                          : `<button class="btn" style="padding: 4px 10px; font-size: 11px;" onclick="copyToClipboard('${room.url}')">Copy</button>`
-                      }
-                  </div>
-              </div>
-              
-              <div style="display: flex; gap: 8px;">
-                  <button onclick="closeCurrentRoom()" class="btn btn-danger" style="flex: 1; font-size: 11px;">
-                      Close Room
-                  </button>
-              </div>
+      return `
+      <div style="padding:16px;width:100%">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
+          <div>
+            <div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:2px">${room.host.playerName}'s Room</div>
+            <div style="font-size:11px;color:var(--text-muted)">${room.host.pcName} • ${room.host.mapname}</div>
           </div>
-        `;
-        })
-        .join("");
-
+          <span style="font-size:10px;padding:3px 8px;background:rgba(50,255,50,0.15);color:#6bff6b;border-radius:20px;border:1px solid rgba(50,255,50,0.3)">HOSTING</span>
+        </div>
+        <div style="background:var(--bg-hover);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;margin-bottom:12px">
+          <div style="font-size:10px;color:var(--text-muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px">Room URL</div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <code style="font-size:12px;color:var(--text-primary);flex:1;overflow:hidden;text-overflow:ellipsis">${room.url}</code>
+            ${actionButton}
+          </div>
+        </div>
+        ${ownerControls}
+      </div>
+    `;
+    })
+    .join("");
 }
-// Refresh active rooms list
+
 async function refreshRooms() {
-  const roomsList = document.getElementById("roomsList");  
   const btn = document.querySelector(".refresh-btn");
   setLoadingButton(btn, true, "Scanning...");
 
   try {
-    const rooms = await window.electronAPI.getRooms();  
+    const rooms = await window.electronAPI.getRooms();
     renderHostRoom(rooms);
   } catch (error) {
     console.error("Failed to refresh rooms:", error);
-    setLoadingButton(btn, false);
   } finally {
     setLoadingButton(btn, false);
   }
-} 
-async function joinRoom(streamType, sunshineHost) { 
-  if (streamType === "sunshine") {
-    await window.electronAPI.startMoonlight(sunshineHost);
+}
 
-    showToast("Opening Moonlight...", "success");
+async function joinRoom(room) {
+  const playerName = $("hostPlayerName")?.value.trim();
 
+  if (!playerName) {
+    showToast("Please enter your name", "error");
     return;
+  }
+  if(!room){
+    showToast("Room is already closed", "error");
+    return;
+  }
+
+  try {
+    const result = await window.electronAPI.launchGameHostJoin(room);
+    console.log(result);
+    if (result.success) {
+      localStorage.setItem("roominfo", JSON.stringify(result.room));
+      showToast("Joined Room success");
+    }
+  } catch (error) {
+    
   }
 }
 
-// Copy URL to clipboard
 function copyToClipboard(text) {
-  navigator.clipboard.writeText(text).then(() => {
-    showToast("URL copied!", "success");
-  });
+  navigator.clipboard
+    .writeText(text)
+    .then(() => showToast("URL copied!", "success"));
 }
 
-// Close the current room
 async function closeCurrentRoom() {
   if (!window.currentRoomId) return;
 
   try {
     await window.electronAPI.closeRoom(window.currentRoomId);
     window.currentRoomId = null;
-
-    // Reset to empty state
-    document.getElementById("roomsList").innerHTML = `
-        <div style="text-align: center; color: var(--text-muted); padding: 20px;">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom: 10px; opacity: 0.3;">
-                <circle cx="11" cy="11" r="8"/>
-                <path d="M21 21l-4.35-4.35"/>
-            </svg>
-            <p style="font-size: 12px;">Click "Refresh Rooms" to scan for active sessions</p>
-        </div>
-    `;
-
     localStorage.removeItem("roominfo");
-    localStorage.removeItem("hostId", hostId);
+    localStorage.removeItem("hostId");
+
+    $("roomsList").innerHTML = `
+      <div style="text-align:center;color:var(--text-muted);padding:20px">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom:10px;opacity:0.3">
+          <circle cx="11" cy="11" r="8"/>
+          <path d="M21 21l-4.35-4.35"/>
+        </svg>
+        <p style="font-size:12px">Click "Refresh Rooms" to scan for active sessions</p>
+      </div>
+    `;
 
     showToast("Room closed", "info");
   } catch (error) {
@@ -863,224 +1189,186 @@ async function closeCurrentRoom() {
   }
 }
 
-// Close modal handlers
-document.getElementById("hostModal").addEventListener("click", function (e) {
-  if (e.target === this) closeHostModal();
-});
-
-document.addEventListener("keydown", function (e) {
-  if (e.key === "Escape") closeHostModal();
-});
-
 function getOrCreateHostId() {
   let hostId = localStorage.getItem("hostId");
-
   if (!hostId) {
     hostId = crypto.randomUUID();
     localStorage.setItem("hostId", hostId);
   }
-
   return hostId;
 }
-/* end host */
 
-// Add game
-async function addGame() {
-  if (!isOwnerLoggedIn) {
-    showToast("Owner login required", "error");
-    return;
-  }
-  const title = document.getElementById("gameTitle").value.trim();
-  const genre = document.getElementById("gameGenre").value;
-  const cover =
-    document.getElementById("gameCover").value.trim() ||
-    "https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=400&h=600&fit=crop&q=80";
-  const manualPath = document.getElementById("gameExeManual").value.trim();
-  const launchMethod = document.getElementById("gameLaunchMethod").value;
-  const HostSetup = document.getElementById("gameHostSetup").value;
-  const appId = document.getElementById("gameAppId").value.trim();
-  if (!title) {
-    showToast("Please enter a game title", "info");
-    return;
-  }
-  if (!genre) {
-    showToast("Please select a genre", "info");
-    return;
-  }
-  if (!manualPath) {
-    showToast("Please enter an executable path", "info");
-    return;
-  }
-
-  const newGame = {
-    title: title,
-    cover: cover,
-    genre: genre,
-    hours: "0h",
-    totalMinutes: 0,
-    status: "installed",
-    lastPlayed: "Never",
-    lastPlayedTimestamp: null,
-    isFavorite: false,
-    exePath: manualPath,
-    detectedExePath: "",
-    launchMethod: launchMethod,
-    HostSetup: HostSetup,
-    appId: appId,
-    version: "1.0.0",
-    latestVersion: "1.0.0",
-  };
-
-  try {
-    if (!window.electronAPI || !window.electronAPI.addGame) {
-      throw new Error(
-        "Electron API is unavailable. Restart the launcher and check preload setup.",
-      );
-    }
-
-    const result = await window.electronAPI.addGame(newGame);
-    games = await window.electronAPI.getGames();
-    applyFilters();
-    closeAddGameModal();
-    showToast(`${result.title} added to library`, "success");
-  } catch (error) {
-    console.error("Failed to add game:", error);
-    showToast("Failed to add game to JSON", "error");
-  }
-}
-// Delete game
-async function delGame() {
-  if (!gameToDelete) return;
-  // Can't delete while playing
-  if (currentlyPlaying && sameId(currentlyPlaying.id, gameToDelete)) {
-    showToast("Stop the game before deleting it", "error");
-    closeDeleteModal();
-    return;
-  }
-  try {
-    if (window.electronAPI && window.electronAPI.deleteGame) {
-      const deleted = await window.electronAPI.deleteGame(gameToDelete);
-      if (!deleted)
-        throw new Error(`Game ${gameToDelete} was not found in JSON`);
-      games = await window.electronAPI.getGames();
-    } else {
-      games = games.filter((g) => !sameId(g.id, gameToDelete));
-    }
-    applyFilters();
-    showToast("Game deleted", "success");
-    closeDeleteModal();
-  } catch (error) {
-    console.error("Failed to delete game:", error);
-    showToast("Failed to delete game from JSON", "error");
-  }
-}
-// Check games update
+// ============================================================
+// UPDATES
+// ============================================================
 async function checkForUpdates() {
-  const result = await window.electronAPI.checkGameUpdates(); 
-
-  allGames = result.games || allGames;
-
-  if (result.updatesFound > 0) {
-    applyFilters(); 
-  }
-}
-
-function openDeleteModal(gameId) {
-  const game = findGameById(gameId);
-  if (!game) return;
-  gameToDelete = gameId;
-  document.getElementById("deleteGameName").textContent = game.title;
-  document.getElementById("deleteModal").classList.add("active");
-}
-
-function closeDeleteModal() {
-  document.getElementById("deleteModal").classList.remove("active");
-  gameToDelete = null;
-}
-
-function forceReload() {
-  showToast("Reloading launcher...", "info");
-
+  if (!window.electronAPI?.checkGameUpdates) return; 
   try {
-    setTimeout(() => {
-      window.location.reload();
-    }, 1000);
-  } catch (error) {
-    console.error(error);
-
-    showToast("Reload failed", "error");
-  }
-}
-function minimizeWindow() {
-  if (window.electronAPI && window.electronAPI.minimize) {
-    window.electronAPI.minimize();
-  } else {
-    showToast("Minimized", "info");
-  }
-}
-function maximizeWindow() {
-  if (window.electronAPI && window.electronAPI.maximize) {
-    window.electronAPI.maximize();
-  } else {
-    showToast("Maximized", "info");
-  }
-}
-function closeWindow() {
-  if (currentlyPlaying) {
-    if (!confirm("A game is currently running. Stop playing and exit?")) return;
-    stopPlaying();
-  }
-  if (window.electronAPI && window.electronAPI.close) {
-    if (confirm("Exit JLJGAMINGHOUSE Launcher?")) {
-      window.electronAPI.close();
-    }
-  } else {
-    if (confirm("Exit JLJGAMINGHOUSE Launcher?")) {
-      showToast("Closing...", "info");
-      setTimeout(
-        () =>
-          (document.body.innerHTML =
-            '<div style="display:flex;justify-content:center;align-items:center;height:100vh;color:#666;font-size:16px;font-family:Poppins;">JLJGAMINGHOUSE Closed</div>'),
-        800,
-      );
-    }
+    const result = await window.electronAPI.checkGameUpdates(); 
+    if (result.games) State.allGames = result.games;
+    if (result.updatesFound > 0) applyFilters();
+  } catch (e) {
+    console.error("Update check failed:", e);
   }
 }
 
-document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") {
-    document.getElementById("searchInput").blur();
-    closeLoginModal();
-    closeAddGameModal();
-    closeDeleteModal();
+// ============================================================
+// EXTERNAL LINKS
+// ============================================================
+function openExternal(url) {
+  showToast(`Opening ${url}...`, "info");
+  if (window.electronAPI?.openExternal) {
+    window.electronAPI.openExternal(url);
+  } else {
+    window.open(url, "_blank");
   }
-  if (e.ctrlKey && e.key === "f") {
-    e.preventDefault();
-    document.getElementById("searchInput").focus();
-  }
-});
+}
 
-// Handle app close while playing
-window.addEventListener("beforeunload", () => {
-  if (currentlyPlaying) {
-    stopPlaying();
-  }
-});
+// ============================================================
+// UI UTILITIES
+// ============================================================
 function setLoadingButton(btn, loading, loadingText = "Loading...") {
   if (!btn) return;
 
   if (loading) {
     btn.dataset.originalHtml = btn.innerHTML;
     btn.disabled = true;
-
     btn.innerHTML = `
-            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" class="spin">
-                <path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/>
-            </svg>
-            ${loadingText}
-        `;
+      <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" class="spin">
+        <path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/>
+      </svg>
+      ${loadingText}
+    `;
   } else {
     btn.disabled = false;
     btn.innerHTML = btn.dataset.originalHtml || btn.innerHTML;
   }
 }
+
+function switchTab(element, tab) {
+  $$(".nav-item").forEach((item) => item.classList.remove("active"));
+  element?.classList.add("active");
+}
+
+function forceReload() {
+  showToast("Reloading launcher...", "info");
+  setTimeout(() => window.location.reload(), 1000);
+}
+
+// ============================================================
+// GLOBAL EVENT HANDLERS
+// ============================================================
+function handleGlobalKeys(e) {
+  if (e.key === "Escape") {
+    $("searchInput")?.blur();
+    closeLoginModal();
+    closeAddGameModal();
+    closeDeleteModal();
+    closeHostModal();
+  }
+  if (e.ctrlKey && e.key === "f") {
+    e.preventDefault();
+    $("searchInput")?.focus();
+  }
+}
+
+function handleBeforeUnload() {
+  if (State.currentlyPlaying) {
+    stopPlaying();
+  }
+}
+
+// ─── QoS Modal ─── 
+function openQosModal() {
+    $('qosModal')?.classList.add('active'); 
+    refreshQosStatus();
+}
+
+function closeQosModal() {
+    $('qosModal')?.classList.remove('active');
+}
+
+async function refreshQosStatus() {
+    try {
+        const status = await window.electronAPI.qosStatus(); 
+        updateQosModalUI(status);
+    } catch (err) {
+        document.getElementById('qosStatusTitle').textContent = 'Error';
+    }
+}
+
+function updateQosModalUI(status) {
+    const iconWrap = document.getElementById('qosStatusIconWrap');
+    const title = document.getElementById('qosStatusTitle');
+    const tag1 = document.getElementById('qosStatusTag');
+    const tag2 = document.getElementById('qosStatusTag2');
+    const desc = document.getElementById('qosStatusDesc');
+    const disableBtn = document.getElementById('qosDisableBtn');
+    const navBadge = document.getElementById('qosNavBadge');
+
+    // Reset preset boxes
+    [3, 4, 5].forEach(mbps => {
+        document.getElementById(`qosPreset${mbps}`).classList.remove('active');
+    });
+
+    if (status.active) {
+        iconWrap.innerHTML = `
+            <svg width="32" height="32" fill="none" stroke="#4ade80" viewBox="0 0 24 24" stroke-width="1.5">
+                <path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+            </svg>
+        `;
+        title.textContent = `${status.throttle} Mbps Throttle`;
+        tag1.textContent = 'Active';
+        tag1.style.background = 'rgba(74, 222, 128, 0.15)';
+        tag1.style.color = '#4ade80';
+        tag2.textContent = `~${status.throttle} Mbps`;
+        desc.textContent = `Brave.exe is limited to ${status.throttle} Mbps bandwidth`;
+        disableBtn.style.display = 'flex';
+
+        navBadge.textContent = `${status.throttle}M`;
+        navBadge.style.display = 'inline-block';
+        navBadge.style.background = 'rgba(74, 222, 128, 0.15)';
+        navBadge.style.color = '#4ade80';
+
+        const activeBox = document.getElementById(`qosPreset${status.throttle}`);
+        if (activeBox) activeBox.classList.add('active');
+    } else {
+        iconWrap.innerHTML = `
+            <svg width="32" height="32" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+                <path d="M13 10V3L4 14h7v7l9-11h-7z"/>
+            </svg>
+        `;
+        title.textContent = 'No Throttle Active';
+        tag1.textContent = 'Full Speed';
+        tag1.style.background = '';
+        tag1.style.color = '';
+        tag2.textContent = 'Unrestricted';
+        desc.textContent = 'Brave is running at maximum bandwidth';
+        disableBtn.style.display = 'none';
+        navBadge.style.display = 'none';
+    }
+}
+
+async function setQosThrottle(mbps) {
+    try {
+        const result = await window.electronAPI.qosApply(mbps);
+        updateQosModalUI({ active: true, throttle: result.throttle });
+        showToast(`Brave throttled to ${mbps} Mbps`);
+    } catch (err) {
+        showToast(`Failed: ${err.message}`, 'error');
+    }
+}
+
+async function removeQosThrottle() {
+    try {
+        await window.electronAPI.qosRemove();
+        updateQosModalUI({ active: false });
+        showToast('Throttle removed');
+    } catch (err) {
+        showToast(`Failed: ${err.message}`, 'error');
+    }
+}
+
+document.getElementById('qosModal')?.addEventListener('click', (e) => {
+    if (e.target.id === 'qosModal') closeQosModal();
+});

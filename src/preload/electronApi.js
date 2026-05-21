@@ -13,6 +13,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
   launchGame: (gameId, launchMethod, appId, title) =>
     ipcRenderer.send("launch-game", gameId, launchMethod, appId, title),
   launchGameAsHost: (data) => ipcRenderer.send("launch-game-as-host", data),
+  launchGameHostJoin: (room) =>
+    ipcRenderer.invoke("launch-game-host-join", room),
   stopGame: (gameId) => ipcRenderer.send("stop-game", gameId),
   isGameRunning: (gameId) => ipcRenderer.invoke("is-game-running", gameId),
   getElapsedTime: (gameId) => ipcRenderer.invoke("get-elapsed-time", gameId),
@@ -29,6 +31,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   removeAllListeners: (channel) => ipcRenderer.removeAllListeners(channel),
 
   getGames: () => ipcRenderer.invoke("db-get-games"),
+  saveCoverImage: (params) => ipcRenderer.invoke("save-cover-image", params),
   addGame: (game) => ipcRenderer.invoke("db-add-game", game),
   deleteGame: (id) => ipcRenderer.invoke("db-delete-game", id),
   updateGame: (id, updates) =>
@@ -46,8 +49,10 @@ contextBridge.exposeInMainWorld("electronAPI", {
   openExternal: (url) => ipcRenderer.send("open-external", url),
   restartApp: () => ipcRenderer.send("restart-app"),
   onInstallProgress: (callback) =>
-    ipcRenderer.on("install-progress", (event, data) => callback(data)), 
-  startSunshine: () => ipcRenderer.invoke("start-sunshine"),
+    ipcRenderer.on("install-progress", (event, data) => callback(data)),
 
-  startMoonlight: (ip) => ipcRenderer.invoke("start-moonlight", ip),
+  // ─── QoS / Brave Throttle ───
+  qosApply: (mbps) => ipcRenderer.invoke("qos:apply", mbps),
+  qosRemove: () => ipcRenderer.invoke("qos:remove"),
+  qosStatus: () => ipcRenderer.invoke("qos:status"),
 });

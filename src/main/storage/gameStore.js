@@ -114,7 +114,20 @@ function createGameStore(app, rootDir = process.cwd()) {
     return Math.max(...numericIds) + 1;
   }
 
+  function saveCoverImage({ gameDir, fileName, data, ext }) {
+    if (!fs.existsSync(gameDir)) {
+      fs.mkdirSync(gameDir, { recursive: true });
+    }
+
+    const coverPath = path.join(gameDir, fileName);
+    const buffer = Buffer.from(data, "base64");
+    fs.writeFileSync(coverPath, buffer);
+
+    return coverPath;
+  }
+
   function addGame(game) {
+    console.log("addGame called with:", game.title);
     const newGame = {
       id: getNextId(),
       title: game.title,
@@ -135,7 +148,9 @@ function createGameStore(app, rootDir = process.cwd()) {
       latestVersion: game.latestVersion || "1.0.0",
     };
     data.games.unshift(newGame);
+    console.log("Saving games...");
     save();
+    console.log("Games saved. Returning new game.");
     return newGame;
   }
 
@@ -191,6 +206,7 @@ function createGameStore(app, rootDir = process.cwd()) {
     addGame,
     deleteGame,
     updateGame,
+    saveCoverImage,
 
     // 👇 ADD THESE
     setGameStatus,

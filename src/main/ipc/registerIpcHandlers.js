@@ -9,8 +9,8 @@ function registerIpcHandlers({
   detectionService,
   hostService,
   updateService,
-  getMainWindow,
-  streamService, 
+  getMainWindow, 
+  qosService,
 }) {
   ipcMain.handle("check-for-updates", () => {
     autoUpdater.checkForUpdates();
@@ -49,7 +49,6 @@ function registerIpcHandlers({
   });
 
   ipcMain.handle("db-add-game", (event, game) => {
-    console.log("IPC db-add-game:", game.title);
     const newGame = store.addGame(game);
     return { id: newGame.id, ...newGame };
   });
@@ -72,6 +71,9 @@ function registerIpcHandlers({
   ipcMain.handle("db-change-password", (event, currentPass, newPass) => {
     return store.changePassword(currentPass, newPass);
   });
+  ipcMain.handle("save-cover-image", (event, params) => {
+    return store.saveCoverImage(params);
+  });
 
   ipcMain.on(
     "launch-game",
@@ -82,6 +84,9 @@ function registerIpcHandlers({
 
   ipcMain.on("launch-game-as-host", async (event, game) => {
     await launchService.launchGameAsHost(game);
+  });
+  ipcMain.handle("launch-game-host-join", async (event, room) => {
+    return await launchService.launchGameHostJoin(room);
   });
 
   ipcMain.on("stop-game", (event, gameId) => {
@@ -134,14 +139,18 @@ function registerIpcHandlers({
 
   ipcMain.handle("close-room", async (event, roomId) => {
     return hostService.closeRoom(roomId);
-  }); 
-
-  ipcMain.handle("start-sunshine", async () => {
-    return streamService.startSunshine();
+  });  
+  // ─── QoS / Brave Throttle ───
+  ipcMain.handle("qos:apply", async (event, mbps) => {
+    return qosService.applyThrottle(mbps);
   });
 
-  ipcMain.handle("start-moonlight", async (event, ip) => {
-    return streamService.startMoonlight(ip);
+  ipcMain.handle("qos:remove", async () => {
+    return qosService.removeThrottle();
+  });
+
+  ipcMain.handle("qos:status", async () => {
+    return qosService.getStatus();
   });
 }
 
