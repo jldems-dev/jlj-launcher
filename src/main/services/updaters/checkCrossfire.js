@@ -7,7 +7,7 @@ const cheerio = require("cheerio");
 async function getLatestVersion() {
   try {
     const response = await axios.get("https://cfph.onstove.com/Download", {
-      timeout: 10000,
+      timeout: 30000,
     });
 
     const $ = cheerio.load(response.data);
