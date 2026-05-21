@@ -187,7 +187,7 @@ function createGameLaunchService({ store, getMainWindow, detectionService, proce
       if (params.host.title.toLowerCase().includes("left 4 dead 2")) {
         const map = params.host.map || "c1m1_hotel";
         const username = params.host.playerName || "Player1";
-        const connectUrl = params.url; // <-- Use actual IP:port, not "url" string
+        const connectUrl = `${params.host.localIP}:3001`; // <-- Use actual IP:port, not "url" string
         const gamePath = game.exePath;
 
         setGoldbergUsername(username);
