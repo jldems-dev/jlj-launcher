@@ -211,16 +211,15 @@ function createGameLaunchService({ store, getMainWindow, detectionService, proce
 
         const processName = path.basename(gamePath); // <-- Use gamePath not undefined exe
 
-        trackingService.startProcessMonitor(game.gameId, processName, gamePath);
-        console.log(args);
-        /* spawn(gamePath, args, {
+        trackingService.startProcessMonitor(game.gameId, processName, gamePath); 
+        spawn(gamePath, args, {
           detached: true,
           stdio: "ignore",
         }).unref(); 
         return {
           success: true,
           room: params,
-        }; */
+        };
       }
 
       // Fallback for non-L4D2 games
