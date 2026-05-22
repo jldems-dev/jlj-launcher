@@ -203,8 +203,9 @@ function createGameLaunchService({ store, getMainWindow, detectionService, proce
         args = [
           "-console",
           "-novid",
+          "-insecure",
           "+connect",
-          connectUrl, // <-- Fixed: use variable not string "url" 
+          connectUrl, // <-- Fixed: use variable not string "url"
           "+name",
           username,
         ];
