@@ -150,7 +150,16 @@ function createGameLaunchService({ store, getMainWindow, detectionService, proce
 
         await setGoldbergUsername(username); // <-- Add await if async
 
-        args = ["-console", "+sv_lan", "1", "+map", map, "+name", username];
+        args = [
+          "-console",
+          "-novid",
+          "+sv_lan",
+          "1",
+          "+map",
+          map,
+          "+name",
+          username,
+        ];
       }
 
       const processName = path.basename(exe);
@@ -184,20 +193,18 @@ function createGameLaunchService({ store, getMainWindow, detectionService, proce
       let args = []; // <-- Declare args!
 
       // LEFT 4 DEAD 2 JOIN SUPPORT
-      if (params.host.title.toLowerCase().includes("left 4 dead 2")) {
-        const map = params.host.map || "c1m1_hotel";
+      if (params.host.title.toLowerCase().includes("left 4 dead 2")) { 
         const username = params.host.playerName || "Player1";
-        const connectUrl = `${params.host.localIP}:3001`; // <-- Use actual IP:port, not "url" string
+        const connectUrl = `${params.host.localIP}:3000`; // <-- Use actual IP:port, not "url" string
         const gamePath = game.exePath;
 
         setGoldbergUsername(username);
 
         args = [
           "-console",
+          "-novid",
           "+connect",
-          connectUrl, // <-- Fixed: use variable not string "url"
-          "+map",
-          map,
+          connectUrl, // <-- Fixed: use variable not string "url" 
           "+name",
           username,
         ];
@@ -205,15 +212,15 @@ function createGameLaunchService({ store, getMainWindow, detectionService, proce
         const processName = path.basename(gamePath); // <-- Use gamePath not undefined exe
 
         trackingService.startProcessMonitor(game.gameId, processName, gamePath);
-
-        spawn(gamePath, args, {
+        console.log(args);
+        /* spawn(gamePath, args, {
           detached: true,
           stdio: "ignore",
         }).unref(); 
         return {
           success: true,
           room: params,
-        };
+        }; */
       }
 
       // Fallback for non-L4D2 games

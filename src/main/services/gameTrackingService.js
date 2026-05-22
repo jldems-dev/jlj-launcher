@@ -1,101 +1,132 @@
 const { formatHours } = require('./timeFormatter');
 
 function createGameTrackingService({ store, getMainWindow, processService }) {
-    const runningGames = new Map();
+  const runningGames = new Map();
 
-    function startProcessMonitor(gameId, processName, exePath) {
-        const startTime = Date.now();
+  function startProcessMonitor(gameId, processName, exePath) {
+    const startTime = Date.now();
 
-        runningGames.set(gameId, {
-            processName,
-            exePath,
-            startTime,
-            checkInterval: null
-        });
+    runningGames.set(gameId, {
+      processName,
+      exePath,
+      startTime,
+      checkInterval: null,
+    });
 
-        const checkInterval = setInterval(async () => {
-            const running = await processService.isProcessRunning(processName);
-            if (!running) {
-                clearInterval(checkInterval);
-                const gameData = runningGames.get(gameId);
-                if (gameData) {
-                    const elapsedMinutes = Math.floor((Date.now() - gameData.startTime) / 60000);
-                    stopGameTracking(gameId, elapsedMinutes);
-                }
-            }
-        }, 3000);
-
-        runningGames.get(gameId).checkInterval = checkInterval;
-
-        const mainWindow = getMainWindow();
-        if (mainWindow && !mainWindow.isDestroyed()) {
-            mainWindow.webContents.send('game-started', { gameId, startTime });
-        }
-    }
-
-    function stopGameTracking(gameId, elapsedMinutes) {
+    const checkInterval = setInterval(async () => {
+      const running = await processService.isProcessRunning(processName);
+      if (!running) {
+        clearInterval(checkInterval);
         const gameData = runningGames.get(gameId);
-        if (!gameData) return;
-
-        if (gameData.checkInterval) {
-            clearInterval(gameData.checkInterval);
+        if (gameData) {
+          const elapsedMinutes = Math.floor(
+            (Date.now() - gameData.startTime) / 60000,
+          );
+          stopGameTracking(gameId, elapsedMinutes);
         }
-        runningGames.delete(gameId);
+      }
+    }, 3000);
 
-        const game = store.findGame(gameId);
-        if (!game) return;
+    runningGames.get(gameId).checkInterval = checkInterval;
 
-        game.totalMinutes = (game.totalMinutes || 0) + elapsedMinutes;
-        game.hours = formatHours(game.totalMinutes);
-        game.lastPlayedTimestamp = Date.now();
-        game.lastPlayed = 'Just now';
-
-        store.save();
-
-        const mainWindow = getMainWindow();
-        if (mainWindow && !mainWindow.isDestroyed()) {
-            mainWindow.webContents.send('game-stopped', {
-                gameId,
-                elapsedMinutes,
-                totalMinutes: game.totalMinutes,
-                hours: game.hours
-            });
-        }
+    const mainWindow = getMainWindow();
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("game-started", { gameId, startTime });
     }
+  }
+  // Added: Kill the game process
+  function killGameProcess(gameId) {
+    const gameData = runningGames.get(gameId);
+    if (!gameData) return;
 
-    function stopIfRunning(gameId) {
-        if (runningGames.has(gameId)) {
-            const gameData = runningGames.get(gameId);
-            const elapsedMinutes = Math.floor((Date.now() - gameData.startTime) / 60000);
-            stopGameTracking(gameId, elapsedMinutes);
-        }
+    try {
+      if (process.platform === "win32") {
+        spawn("taskkill", ["/IM", gameData.processName, "/F", "/T"], {
+          detached: true,
+          stdio: "ignore",
+        }).unref();
+      } else {
+        spawn("pkill", ["-f", gameData.processName], {
+          detached: true,
+          stdio: "ignore",
+        }).unref();
+      }
+    } catch (err) {
+      console.error(`Failed to kill process ${gameData.processName}:`, err);
     }
+  }
 
-    function stopAll() {
-        runningGames.forEach((gameData, gameId) => {
-            const elapsedMinutes = Math.floor((Date.now() - gameData.startTime) / 60000);
-            stopGameTracking(gameId, elapsedMinutes);
-        });
+  function stopGameTracking(gameId, elapsedMinutes) {
+    const gameData = runningGames.get(gameId);
+    if (!gameData) return;
+
+    if (gameData.checkInterval) {
+      clearInterval(gameData.checkInterval);
     }
+    runningGames.delete(gameId);
 
-    function isRunning(gameId) {
-        return runningGames.has(gameId);
+    const game = store.findGame(gameId);
+    if (!game) return;
+
+    game.totalMinutes = (game.totalMinutes || 0) + elapsedMinutes;
+    game.hours = formatHours(game.totalMinutes);
+    game.lastPlayedTimestamp = Date.now();
+    game.lastPlayed = "Just now";
+
+    store.save();
+
+    const mainWindow = getMainWindow();
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("game-stopped", {
+        gameId,
+        elapsedMinutes,
+        totalMinutes: game.totalMinutes,
+        hours: game.hours,
+      });
     }
+  }
 
-    function getElapsedTime(gameId) {
-        if (!runningGames.has(gameId)) return 0;
-        const gameData = runningGames.get(gameId);
-        return Math.floor((Date.now() - gameData.startTime) / 1000);
+  function stopIfRunning(gameId) {
+    if (runningGames.has(gameId)) {
+      killGameProcess(gameId); // Added
+      const gameData = runningGames.get(gameId);
+      const elapsedMinutes = Math.floor(
+        (Date.now() - gameData.startTime) / 60000,
+      );
+      stopGameTracking(gameId, elapsedMinutes);
     }
+  }
 
-    return {
-        startProcessMonitor,
-        stopGameTracking,
-        stopIfRunning,
-        stopAll,
-        isRunning,
-        getElapsedTime
-    };
+  function stopAll() {
+    runningGames.forEach((gameData, gameId) => {
+      runningGames.forEach((gameData, gameId) => {
+        killGameProcess(gameId); // Added
+      });
+      const elapsedMinutes = Math.floor(
+        (Date.now() - gameData.startTime) / 60000,
+      );
+      stopGameTracking(gameId, elapsedMinutes);
+    });
+  }
+
+  function isRunning(gameId) {
+    return runningGames.has(gameId);
+  }
+
+  function getElapsedTime(gameId) {
+    if (!runningGames.has(gameId)) return 0;
+    const gameData = runningGames.get(gameId);
+    return Math.floor((Date.now() - gameData.startTime) / 1000);
+  }
+
+  return {
+    startProcessMonitor,
+    stopGameTracking,
+    stopIfRunning,
+    stopAll,
+    isRunning,
+    getElapsedTime,
+  };
 }
 
 module.exports = { createGameTrackingService };
