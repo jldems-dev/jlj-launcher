@@ -1123,7 +1123,7 @@ async function refreshRooms() {
   const btn = document.querySelector(".refresh-btn");
   setLoadingButton(btn, true, "Scanning...");
 
-  try {
+  try { 
     const rooms = await window.electronAPI.getRooms();
     renderHostRoom(rooms);
   } catch (error) {
@@ -1146,10 +1146,9 @@ async function joinRoom(room) {
   }
 
   try {
-    const result = await window.electronAPI.launchGameHostJoin(room);
-    console.log(result);
+    const result = await window.electronAPI.launchGameHostJoin(room); 
     if (result.success) {
-      localStorage.setItem("roominfo", JSON.stringify(result.room));
+      // localStorage.setItem("roominfo", JSON.stringify(result.room));
       showToast("Joined Room success");
     }
   } catch (error) {
