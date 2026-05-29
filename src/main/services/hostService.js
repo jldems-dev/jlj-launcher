@@ -52,7 +52,7 @@ function createHostService() {
         });
         
         server.listen(port, '0.0.0.0', () => {
-            console.log(`Room server running at http://${localIP}:${port}/room`);
+            // console.log(`Room server running at http://${localIP}:${port}/room`);
         });
         
         return { server, port, localIP, url: `http://${localIP}:${port}/room` };

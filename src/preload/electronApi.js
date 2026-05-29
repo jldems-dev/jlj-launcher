@@ -55,4 +55,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
   qosApply: (mbps) => ipcRenderer.invoke("qos:apply", mbps),
   qosRemove: () => ipcRenderer.invoke("qos:remove"),
   qosStatus: () => ipcRenderer.invoke("qos:status"),
+
+  // ─── Control Panel ───
+  lockControlPanel: () => ipcRenderer.invoke("cp:lock"),
+  unlockControlPanel: () => ipcRenderer.invoke("cp:unlock"),
+  getCpStatus: () => ipcRenderer.invoke("cp:status"),
 });

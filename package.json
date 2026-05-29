@@ -1,6 +1,6 @@
 {
   "name": "jljgaminghouse",
-  "version": "1.0.15",
+  "version": "1.0.17",
   "description": "",
   "main": "main.js",
   "scripts": {
@@ -50,6 +50,7 @@
     "buffer-crc32": "^0.2.13",
     "cheerio": "^1.0.0-rc.12",
     "debug": "^4.4.3",
+    "dotenv": "^17.4.2",
     "electron-updater": "^6.8.3",
     "end-of-stream": "^1.4.5",
     "env-paths": "^3.0.0",
@@ -62,12 +63,14 @@
     "pend": "^1.2.0",
     "progress": "^2.0.3",
     "pump": "^3.0.4",
+    "robotjs": "^0.7.1",
+    "screenshot-desktop": "^1.15.4",
     "semver": "^7.8.0",
     "socket.io-client": "^4.8.3",
     "sudo-prompt": "^9.2.1",
     "sumchecker": "^3.0.1",
     "systeminformation": "^5.31.6",
-    "undici": "^7.25.0",
+    "undici": "^5.29.0",
     "undici-types": "^7.16.0",
     "wrappy": "^1.0.2",
     "yauzl": "^2.10.0"

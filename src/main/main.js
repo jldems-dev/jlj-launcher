@@ -7,6 +7,8 @@ const { createGameStore } = require("./storage/gameStore");
 const detectionService = require("./services/gameDetectionService");
 const processService = require("./services/processService");
 const qosService = require("./services/qosService");
+const cpService = require("./services/cpService");
+const popupWindowService = require("./services/popupWindowService");
 const { createGameTrackingService } = require("./services/gameTrackingService");
 const { createGameLaunchService } = require("./services/gameLaunchService");
 const { createHostService } = require("./services/hostService");
@@ -14,6 +16,7 @@ const { createGameUpdateService } = require("./services/gameUpdateService");
 const { registerIpcHandlers } = require("./ipc/registerIpcHandlers");   
 const { connectSocket } = require("./services/adminSocketService");
 const { autoUpdater } = require("electron-updater");
+
 
 function bootstrap() {
   let mainWindow;
@@ -93,15 +96,17 @@ function bootstrap() {
     detectionService,
     hostService,
     updateService,
-    getMainWindow, 
+    getMainWindow,
     qosService,
+    cpService,
+    popupWindowService,
   });
 
   // =========================
   // APP START
   // =========================
-  app.whenReady().then(() => {
-    // 1. SPLASH FIRST (instant UI)
+  app.whenReady().then(async () => {
+    // 1. SHOW SPLASH IMMEDIATELY
     splash = new (require("electron").BrowserWindow)({
       width: 420,
       height: 300,
@@ -109,32 +114,36 @@ function bootstrap() {
       alwaysOnTop: true,
       transparent: true,
     });
-
-    splash.loadFile(path.join(__dirname, "../renderer/splash.html"));
-
-    // 2. CREATE MAIN WINDOW (hidden)
+    splash.loadFile(path.join(__dirname, "../renderer/splash.html")); 
+    try {
+      // 2. RESTORE QOS WHILE SPLASH IS VISIBLE
+      await qosService.restoreThrottle();
+    } catch (err) {
+      console.error("Failed to restore QoS:", err);
+    }
+    // 3. CREATE MAIN WINDOW HIDDEN
     mainWindow = createWindow({
-      show: false, // IMPORTANT
+      show: false,
     });
-
-    mainWindow.once("ready-to-show", () => {
-      // 3. SWITCH SPLASH → MAIN
-      setTimeout(() => {
-        splash.close();
-        mainWindow.show();
-      }, 500); // smooth transition
-    }); 
-
-    // 4. BACKGROUND BOOTSTRAP (NO BLOCKING UI)
-    setImmediate(async () => {
+    // 4. WAIT UNTIL MAIN WINDOW IS READY
+    mainWindow.once("ready-to-show", async () => {
       try {
+        // 5. BACKGROUND BOOTSTRAP
         await store.init();
 
         setupAutoUpdates(mainWindow);
-        // connectSocket();
+
+        connectSocket();
       } catch (err) {
         console.error("Bootstrap error:", err);
       }
+
+      // 6. SMOOTH TRANSITION
+      setTimeout(() => {
+        splash.close();
+
+        mainWindow.show();
+      }, 500);
     });
   });
 

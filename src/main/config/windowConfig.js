@@ -13,7 +13,7 @@ function createBrowserWindowOptions(options = {}) {
     frame: false,
     titleBarStyle: "hidden",
     backgroundColor: "#050505",
-
+    fullscreen: true,
     icon: path.join(root, "assets", "images", "favicon-512x512.png"),
 
     webPreferences: {

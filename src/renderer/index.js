@@ -14,13 +14,14 @@ const State = {
   currentlyPlaying: null,
   playTimerInterval: null,
   updateListenerAttached: false,
+  cpLocked: false,
 };
 
 // ============================================================
 // DOM UTILITIES
 // ============================================================
 const $ = (id) => document.getElementById(id);
-const $$ = (sel) => document.querySelectorAll(sel);
+const $$ = (sel) => document.querySelectorAll(sel); 
 
 // ============================================================
 // INITIALIZATION
@@ -30,6 +31,7 @@ document.addEventListener("DOMContentLoaded", () => {
   bindCrudControls();
   loadGames();
   loadMaps();
+  listRoom();
 
   // Check for updates
   setTimeout(updateAppStatus, 0);
@@ -62,12 +64,11 @@ function updateAppStatus() {
 
   if (!window.electronAPI) return;
 
-  window.electronAPI.onUpdateStatus((data) => {
-    panel?.classList.remove("hidden");
-
+  window.electronAPI.onUpdateStatus((data) => { 
     switch (data.status) {
       case "available":
         restartBtn?.classList.add("hidden");
+        panel?.classList.remove("hidden");
         statusText.textContent = "Downloading update...";
         break;
 
@@ -85,7 +86,6 @@ function updateAppStatus() {
         break;
     }
   });
-
   window.electronAPI.onUpdateProgress((data) => {
     panel?.classList.remove("hidden");
     const percent = data.percent || 0;
@@ -93,7 +93,6 @@ function updateAppStatus() {
     percentText.textContent = `${percent}%`;
     speedText.textContent = `${Math.round((data.speed || 0) / 1024)} KB/s`;
   });
-
   window.electronAPI.onInstallProgress((data) => {
     panel?.classList.remove("hidden");
     const percent = data.percent || 0;
@@ -245,6 +244,7 @@ function closeExitModal() {
 }
 
 async function confirmExit() {
+  localStorage.clear();
   closeExitModal();
   
   if (State.currentlyPlaying) {
@@ -292,6 +292,7 @@ async function confirmExit() {
       `;
     }, 500);
   }
+ 
 }
 
 // ============================================================
@@ -736,6 +737,8 @@ async function login() {
       $("loginText").textContent = "Logout";
       $("ownerBadge").style.display = "inline-flex";
       $("addGameNav").style.display = "flex";
+      $("addBraveQos").style.display = "flex";
+      $("addControlPanel").style.display = "flex";
       showToast("Owner logged in successfully", "success");
       applyFilters();
     } else {
@@ -943,8 +946,8 @@ async function delGame() {
 async function openHostModal(game) {
   State.currentHostGame = game;
   const roomObj = JSON.parse(localStorage.getItem("roominfo") || "null");
-  const playerName = roomObj?.host?.playerName || "";
-  const gameMap = roomObj?.host?.map || "";
+  const playerName = roomObj?.playerName || "";
+  const gameMap = roomObj?.map || "";
 
   if (!game.title?.toLowerCase().includes("left 4 dead 2")) {
     showToast("Hosting is not available for this game.", "error");
@@ -966,9 +969,7 @@ async function openHostModal(game) {
   $("hostGameVersion").textContent = `v${game.version}`;
   $("hostGameExe").textContent = game.exePath;
   $("hostPlayerName").value = playerName;
-  $("hostGameMap").value = gameMap;
-
-  await refreshRooms();
+  $("hostGameMap").value = gameMap; 
 }
 
 function closeHostModal() {
@@ -999,6 +1000,10 @@ async function loadMaps() {
   }
 }
 
+async function listRoom(){
+  const rooms = await window.electronAPI.getRooms();
+  renderHostRoom(rooms); 
+}
 async function createRoom() {
   if (!State.currentHostGame) return;
 
@@ -1037,8 +1042,14 @@ async function createRoom() {
     const result = await window.electronAPI.createRoom(payload);
 
     if (result.success) {
-      localStorage.setItem("roominfo", JSON.stringify(result.room));
-      refreshRooms();
+      let obj = {
+        playerName: result.room.host.playerName,
+        map: result.room.host.map,
+        title: result.room.host.title,
+        gameId: result.room.host.gameId,
+      };
+      localStorage.setItem("roominfo", JSON.stringify(obj));
+      listRoom();
 
       await window.electronAPI.launchGameAsHost({
         gameId: State.currentHostGame.id,
@@ -1047,7 +1058,8 @@ async function createRoom() {
         map: payload.map,
         playerName,
       });
-
+      const game = findGameById(State.currentHostGame.id);
+      startPlayTimer(game);
       showToast(`Room created! ${result.room.url}`, "success");
       window.currentRoomId = result.room.id;
     }
@@ -1062,6 +1074,11 @@ async function createRoom() {
 function renderHostRoom(rooms) {
   const roomsList = $("roomsList");
   const myHostId = localStorage.getItem("hostId");
+
+  roomsList.style.display = "grid";
+  roomsList.style.gridTemplateColumns = "repeat(auto-fill, minmax(280px, 1fr))";
+  roomsList.style.gap = "16px";
+  roomsList.style.padding = "16px";
 
   const filteredRooms = rooms.filter(
     (room) => room.host.gameId === State.currentHostGame?.id,
@@ -1089,26 +1106,22 @@ function renderHostRoom(rooms) {
         : `<button class="btn" style="padding:4px 10px;font-size:11px" onclick='event.stopPropagation();joinRoom(${JSON.stringify(room)})'>Join</button>`;
 
       const ownerControls = isOwner
-        ? `
-      <div style="display:flex;gap:8px">
-        <button onclick="closeCurrentRoom()" class="btn btn-danger" style="flex:1;font-size:11px">Close Room</button>
-      </div>
-    `
+        ? `<button onclick="closeCurrentRoom()" class="btn btn-danger" style="width:100%;font-size:11px;margin-top:8px">Close Room</button>`
         : "";
 
       return `
-      <div style="padding:16px;width:100%">
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;display:flex;flex-direction:column">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
-          <div>
-            <div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:2px">${room.host.playerName}'s Room</div>
-            <div style="font-size:11px;color:var(--text-muted)">${room.host.pcName} • ${room.host.mapname}</div>
+          <div style="min-width:0">
+            <div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${room.host.playerName}'s Room</div>
+            <div style="font-size:11px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${room.host.pcName} • ${room.host.mapname}</div>
           </div>
-          <span style="font-size:10px;padding:3px 8px;background:rgba(50,255,50,0.15);color:#6bff6b;border-radius:20px;border:1px solid rgba(50,255,50,0.3)">HOSTING</span>
+          <span style="font-size:10px;padding:3px 8px;background:rgba(50,255,50,0.15);color:#6bff6b;border-radius:20px;border:1px solid rgba(50,255,50,0.3);flex-shrink:0;margin-left:8px">HOSTING</span>
         </div>
-        <div style="background:var(--bg-hover);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;margin-bottom:12px">
+        <div style="background:var(--bg-hover);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;margin-bottom:8px">
           <div style="font-size:10px;color:var(--text-muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px">Room URL</div>
           <div style="display:flex;gap:8px;align-items:center">
-            <code style="font-size:12px;color:var(--text-primary);flex:1;overflow:hidden;text-overflow:ellipsis">${room.url}</code>
+            <code style="font-size:12px;color:var(--text-primary);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${room.url}</code>
             ${actionButton}
           </div>
         </div>
@@ -1162,11 +1175,10 @@ function copyToClipboard(text) {
     .then(() => showToast("URL copied!", "success"));
 }
 
-async function closeCurrentRoom() {
-  if (!window.currentRoomId) return;
-
+async function closeCurrentRoom() { 
   try {
     await window.electronAPI.closeRoom(window.currentRoomId);
+    stopPlaying();
     window.currentRoomId = null;
     localStorage.removeItem("roominfo");
     localStorage.removeItem("hostId");
@@ -1179,8 +1191,7 @@ async function closeCurrentRoom() {
         </svg>
         <p style="font-size:12px">Click "Refresh Rooms" to scan for active sessions</p>
       </div>
-    `;
-
+    `; 
     showToast("Room closed", "info");
   } catch (error) {
     showToast("Failed to close room", "error");
@@ -1291,22 +1302,22 @@ async function refreshQosStatus() {
         const status = await window.electronAPI.qosStatus(); 
         updateQosModalUI(status);
     } catch (err) {
-        document.getElementById('qosStatusTitle').textContent = 'Error';
+        $("qosStatusTitle").textContent = "Error";
     }
 }
 
 function updateQosModalUI(status) {
-    const iconWrap = document.getElementById('qosStatusIconWrap');
-    const title = document.getElementById('qosStatusTitle');
-    const tag1 = document.getElementById('qosStatusTag');
-    const tag2 = document.getElementById('qosStatusTag2');
-    const desc = document.getElementById('qosStatusDesc');
-    const disableBtn = document.getElementById('qosDisableBtn');
-    const navBadge = document.getElementById('qosNavBadge');
+    const iconWrap = $('qosStatusIconWrap');
+    const title = $('qosStatusTitle');
+    const tag1 = $('qosStatusTag');
+    const tag2 = $('qosStatusTag2');
+    const desc = $('qosStatusDesc');
+    const disableBtn = $('qosDisableBtn');
+    const navBadge = $('qosNavBadge');
 
     // Reset preset boxes
     [3, 4, 5].forEach(mbps => {
-        document.getElementById(`qosPreset${mbps}`).classList.remove('active');
+        $(`qosPreset${mbps}`).classList.remove('active');
     });
 
     if (status.active) {
@@ -1328,7 +1339,7 @@ function updateQosModalUI(status) {
         navBadge.style.background = 'rgba(74, 222, 128, 0.15)';
         navBadge.style.color = '#4ade80';
 
-        const activeBox = document.getElementById(`qosPreset${status.throttle}`);
+        const activeBox = $(`qosPreset${status.throttle}`);
         if (activeBox) activeBox.classList.add('active');
     } else {
         iconWrap.innerHTML = `
@@ -1367,6 +1378,92 @@ async function removeQosThrottle() {
     }
 }
 
-document.getElementById('qosModal')?.addEventListener('click', (e) => {
-    if (e.target.id === 'qosModal') closeQosModal();
+$("qosModal")?.addEventListener("click", (e) => {
+  if (e.target.id === "qosModal") closeQosModal();
+});
+
+// ─── Control Panel Modal ─── 
+function openCPModal() {
+  console.log("asd");
+  document.getElementById("cpModal").classList.add("active");
+  checkCpStatus();
+}
+
+function closeCpModal() {
+    document.getElementById('cpModal').classList.remove('active');
+}
+
+async function checkCpStatus() {
+    try {
+        const status = await window.electronAPI.getCpStatus();
+        State.cpLocked = status?.locked || false;
+        updateCpUI();
+    } catch (err) {
+        console.error('Failed to get CP status:', err);
+    }
+}
+
+function updateCpUI() {
+    const iconWrap = document.getElementById('cpStatusIconWrap');
+    const title = document.getElementById('cpStatusTitle');
+    const tag1 = document.getElementById('cpStatusTag');
+    const tag2 = document.getElementById('cpStatusTag2');
+    const desc = document.getElementById('cpStatusDesc');
+    const lockPreset = document.getElementById('cpPresetLock');
+    const unlockPreset = document.getElementById('cpPresetUnlock');
+    const disableBtn = document.getElementById('cpDisableBtn');
+
+    if (State.cpLocked) {
+        iconWrap.style.background = 'rgba(244,67,54,0.12)';
+        iconWrap.style.color = '#f44336';
+        title.textContent = 'Control Panel Locked';
+        tag1.textContent = 'Blocked';
+        tag1.className = 'tag tag-red';
+        tag2.textContent = 'Restricted';
+        tag2.className = 'tag tag-red';
+        desc.textContent = 'Control Panel and Settings are disabled for users';
+        
+        lockPreset.classList.add('active');
+        unlockPreset.classList.remove('active');
+        disableBtn.style.display = 'flex';
+    } else {
+        iconWrap.style.background = 'rgba(76,175,80,0.12)';
+        iconWrap.style.color = '#4caf50';
+        title.textContent = 'Control Panel Unlocked';
+        tag1.textContent = 'Accessible';
+        tag1.className = 'tag tag-green';
+        tag2.textContent = 'Full Access';
+        tag2.className = 'tag tag-green';
+        desc.textContent = 'Users can open Control Panel and Settings';
+        
+        lockPreset.classList.remove('active');
+        unlockPreset.classList.add('active');
+        disableBtn.style.display = 'none';
+    }
+}
+
+async function lockControlPanel() {
+    try {
+        await window.electronAPI.lockControlPanel();
+        State.cpLocked = true;
+        updateCpUI();
+    } catch (err) {
+        console.error('Failed to lock Control Panel:', err);
+        alert('Failed to lock Control Panel. Make sure launcher is running as admin.');
+    }
+}
+
+async function unlockControlPanel() {
+    try {
+        await window.electronAPI.unlockControlPanel();
+        State.cpLocked = false;
+        updateCpUI();
+    } catch (err) {
+        console.error('Failed to unlock Control Panel:', err);
+        alert('Failed to unlock Control Panel. Make sure launcher is running as admin.');
+    }
+}
+
+$("cpModal")?.addEventListener("click", (e) => {
+  if (e.target.id === "cpModal") closeCPModal();
 });

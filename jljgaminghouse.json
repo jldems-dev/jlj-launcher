@@ -26,7 +26,7 @@
       "genre": "Shooter",
       "hours": "0h",
       "totalMinutes": 0,
-      "status": "installed",
+      "status": "update",
       "lastPlayed": "Just now",
       "lastPlayedTimestamp": 1779291788914,
       "isFavorite": false,
@@ -35,8 +35,8 @@
       "launchMethod": "direct",
       "HostSetup": "no",
       "appId": "",
-      "version": "1.0.0",
-      "latestVersion": "v1622"
+      "version": "v1620",
+      "latestVersion": "v1623"
     },
     {
       "id": 5,
@@ -54,19 +54,19 @@
       "launchMethod": "roblox",
       "HostSetup": "no",
       "appId": "",
-      "version": "version-ec412128eba3476e",
-      "latestVersion": "version-4b6315bf1f0a4dbb"
+      "version": "version-9377ee10133e4be3",
+      "latestVersion": "version-460909c4fe904aae"
     },
     {
       "id": 4,
       "title": "Left 4 Dead 2",
       "cover": "C:\\Games\\Left 4 Dead 2\\left4dead2.ico",
       "genre": "Horror",
-      "hours": "1h 34m",
-      "totalMinutes": 94,
+      "hours": "1h 48m",
+      "totalMinutes": 108,
       "status": "installed",
       "lastPlayed": "Just now",
-      "lastPlayedTimestamp": 1779377258870,
+      "lastPlayedTimestamp": 1779462234112,
       "isFavorite": false,
       "exePath": "C:\\Games\\Left 4 Dead 2\\left4dead2.exe",
       "detectedExePath": "",

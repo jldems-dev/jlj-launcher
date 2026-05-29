@@ -257,8 +257,7 @@ function createGameLaunchService({ store, getMainWindow, detectionService, proce
         const accountFile = path.join(savePath, "account_name.txt");
 
         fs.writeFileSync(accountFile, username);
-
-        console.log("Goldberg username updated:", username);
+ 
       } catch (err) {
         console.error("Failed to set Goldberg username:", err);
       }

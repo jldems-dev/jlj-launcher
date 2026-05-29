@@ -9,8 +9,10 @@ function registerIpcHandlers({
   detectionService,
   hostService,
   updateService,
-  getMainWindow, 
-  qosService,
+  getMainWindow,
+  qosService, 
+  cpService,
+  popupWindowService,
 }) {
   ipcMain.handle("check-for-updates", () => {
     autoUpdater.checkForUpdates();
@@ -139,7 +141,8 @@ function registerIpcHandlers({
 
   ipcMain.handle("close-room", async (event, roomId) => {
     return hostService.closeRoom(roomId);
-  });  
+  });
+
   // ─── QoS / Brave Throttle ───
   ipcMain.handle("qos:apply", async (event, mbps) => {
     return qosService.applyThrottle(mbps);
@@ -151,6 +154,23 @@ function registerIpcHandlers({
 
   ipcMain.handle("qos:status", async () => {
     return qosService.getStatus();
+  });
+
+  ipcMain.on("show-popup-window", (_, data) => {
+    popupWindowService.showPopup(data);
+  });
+
+  // Control Panel
+  ipcMain.handle("cp:lock", async () => {
+    return cpService.lockControlPanel();
+  });
+
+  ipcMain.handle("cp:unlock", async () => {
+    return cpService.unlockControlPanel();
+  });
+
+  ipcMain.handle("cp:status", async () => {
+    return cpService.getStatus();
   });
 }
 

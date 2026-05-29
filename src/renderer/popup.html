@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8"> 
+  <link rel="stylesheet" href="../../assets/css/popup.css">
+<base target="_blank">
+</head>
+
+<body>
+<div class="popup-card info" id="popup-card">
+  <div class="pulse-glow"></div>
+  <div class="accent-strip"></div>
+
+  <div class="content">
+    <div class="header-row">
+      <div class="icon-wrap" id="popup-icon">
+        <img style="color:blue"
+          src="../../assets/icons/info.svg" 
+        >
+      </div>
+      <div id="title" class="title">Notification</div>
+      <button class="close-btn" id="closeBtn">×</button>
+    </div>
+
+    <div id="message" class="message"></div>
+
+    <div class="footer-row">
+      <div class="meta">
+        <span>Server Admin</span>
+        <span class="meta-dot"></span>
+        <span class="meta-time" id="popup-time"></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="dismiss-bar">
+    <div class="dismiss-progress"></div>
+  </div>
+</div>
+<script src="popup.js"></script>
+
+</body>
+</html>

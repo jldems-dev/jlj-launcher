@@ -637,7 +637,7 @@ body {
     position: fixed;
     bottom: 24px;
     right: 24px;
-    z-index: 1000;
+    z-index: 99999;
     display: flex;
     flex-direction: column;
     gap: 10px;
@@ -658,6 +658,7 @@ body {
     transition: transform 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     pointer-events: all;
     min-width: 280px;
+    z-index: 99999;
 }
 
 .toast.show {
@@ -1586,3 +1587,8 @@ body {
     color: #64748b;
     text-align: center;
 } 
+.ind-icon{
+    width: 18px;
+    height: 18px;
+    object-fit: contain;
+}

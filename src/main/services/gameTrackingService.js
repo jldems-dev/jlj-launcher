@@ -1,4 +1,5 @@
 const { formatHours } = require('./timeFormatter');
+const { exec, spawn } = require("child_process");
 
 function createGameTrackingService({ store, getMainWindow, processService }) {
   const runningGames = new Map();

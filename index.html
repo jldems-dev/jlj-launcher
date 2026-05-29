@@ -29,7 +29,7 @@
             <div class="nav-section">
                 <div class="nav-header">Library</div>
                 <div class="nav-item active" onclick="switchTab(this, 'library')">
-                    <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+                    <img class="ind-icon" src="assets/icons/grid.svg" alt="" >
                     Game Library
                 </div>
             </div>
@@ -54,12 +54,23 @@
                     <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg>
                     Browser
                 </div>
-                <div class="nav-item" onclick="openQosModal()">
+                <div class="nav-item" id="addBraveQos" style="display: none;" onclick="openQosModal()" >
                     <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
                         <path d="M13 10V3L4 14h7v7l9-11h-7z"/>
                     </svg>
                     Brave QoS
                     <span class="tag" id="qosNavBadge" style="display: none; margin-left: auto; font-size: 10px; padding: 2px 8px;"></span>
+                </div>
+                <div class="nav-item" id="addControlPanel" style="display: none;" onclick="openCPModal()" >
+                    <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                            d="M4 6h16M6 12h12M8 18h8"/>
+                        <circle cx="9" cy="6" r="2"/>
+                        <circle cx="15" cy="12" r="2"/>
+                        <circle cx="12" cy="18" r="2"/>
+                    </svg>
+                    Control Panel
+                    <span class="tag" id="cpNavBadge" style="display: none; margin-left: auto; font-size: 10px; padding: 2px 8px;"></span>
                 </div>
             </div>
 
@@ -394,6 +405,75 @@
             </div>
         </div>
     </div>
+    <!-- Control Panel Modal --> 
+    <div class="modal-overlay" id="cpModal">
+        <div class="modal" style="max-width: 480px;">
+            <div class="modal-header">
+                <div>
+                    <h3 class="modal-title">Control Panel Lock</h3>
+                    <p style="font-size: 13px; color: var(--text-muted); margin-top: 4px;">Restrict access to Windows Control Panel</p>
+                </div>
+                <button class="modal-close" onclick="closeCpModal()">✕</button>
+            </div>
+
+            <!-- Status Card -->
+            <div class="qos-status-card" id="cpStatusCard">
+                <div class="qos-status-icon-wrap" id="cpStatusIconWrap">
+                    <svg width="32" height="32" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+                        <path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                        <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    </svg>
+                </div>
+                <div class="qos-status-details">
+                    <div class="qos-status-title" id="cpStatusTitle">Control Panel Unlocked</div>
+                    <div class="qos-status-tags">
+                        <span class="tag" id="cpStatusTag">Accessible</span>
+                        <span class="tag" id="cpStatusTag2">Full Access</span>
+                    </div>
+                    <div class="qos-status-desc" id="cpStatusDesc">Users can open Control Panel and Settings</div>
+                </div>
+            </div>
+
+            <!-- Action Panel -->
+            <div class="qos-presets-panel">
+                <div class="host-room-header" style="margin-top: 0;">
+                    <div>
+                        <h3>Access Control</h3>
+                        <p>Toggle Control Panel restriction</p>
+                    </div>
+                </div>
+
+                <div class="qos-form-grid" style="grid-template-columns: 1fr 1fr;">
+                    <div class="qos-preset-box" id="cpPresetLock" onclick="lockControlPanel()">
+                        <div class="qos-preset-value">
+                            <svg width="28" height="28" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+                                <path d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/>
+                            </svg>
+                        </div>
+                        <div class="qos-preset-label" style="margin-top: 8px;">Lock</div>
+                        <div class="qos-preset-hint">Block Control Panel</div>
+                    </div>
+                    <div class="qos-preset-box" id="cpPresetUnlock" onclick="unlockControlPanel()">
+                        <div class="qos-preset-value">
+                            <svg width="28" height="28" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+                                <path d="M13.5 10.5V6.75a4.5 4.5 0 119 0v3.75M3.75 21.75h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H3.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/>
+                            </svg>
+                        </div>
+                        <div class="qos-preset-label" style="margin-top: 8px;">Unlock</div>
+                        <div class="qos-preset-hint">Allow Control Panel</div>
+                    </div>
+                </div>
+
+                <button class="btn btn-danger btn-full" id="cpDisableBtn" onclick="unlockControlPanel()" style="display: none; margin-top: 16px;">
+                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                        <path d="M13.5 10.5V6.75a4.5 4.5 0 119 0v3.75M3.75 21.75h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H3.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/>
+                    </svg>
+                    Unlock Control Panel
+                </button>
+            </div>
+        </div>
+    </div>
+
     <div id="updatePanel" class="update-panel hidden">
         <div class="update-box">
             <div class="update-title">Updating Application</div>
