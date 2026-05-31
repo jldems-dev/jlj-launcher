@@ -1,6 +1,6 @@
 {
   "name": "jljgaminghouse",
-  "version": "1.0.17",
+  "version": "1.0.18",
   "description": "",
   "main": "main.js",
   "scripts": {
@@ -31,8 +31,10 @@
       "icon": "assets/images/favicon-512x512.png"
     },
     "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true
+      "oneClick": true,
+      "perMachine": false,
+      "allowElevation": false,
+      "allowToChangeInstallationDirectory": false
     }
   },
   "keywords": [],
@@ -67,6 +69,7 @@
     "screenshot-desktop": "^1.15.4",
     "semver": "^7.8.0",
     "socket.io-client": "^4.8.3",
+    "sql.js": "^1.14.1",
     "sudo-prompt": "^9.2.1",
     "sumchecker": "^3.0.1",
     "systeminformation": "^5.31.6",

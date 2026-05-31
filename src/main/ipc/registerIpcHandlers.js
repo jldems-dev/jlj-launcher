@@ -1,4 +1,4 @@
-const { shell } = require('electron'); 
+const { app, shell } = require('electron'); 
 
 function registerIpcHandlers({
   ipcMain,
@@ -18,32 +18,28 @@ function registerIpcHandlers({
     autoUpdater.checkForUpdates();
   });
 
-  ipcMain.on("restart-app", () => {
-    let progress = 0;
-
-    const installInterval = setInterval(() => {
-      progress += 5;
-
-      const mainWindow = getMainWindow();
-
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send("install-progress", {
-          percent: progress,
-        });
-      }
-
-      if (progress >= 100) {
-        clearInterval(installInterval);
-
-        setTimeout(() => {
-          autoUpdater.quitAndInstall();
-        }, 500);
-      }
-    }, 150);
+  ipcMain.handle("get-app-version", () => {
+    return app.getVersion();
   });
 
   ipcMain.handle("db-get-games", () => {
     return store.getGames();
+  });
+
+  ipcMain.handle("db-get-left4dead2-maps", () => {
+    return store.getLeft4Dead2Maps();
+  });
+
+  ipcMain.handle("db-get-pc-specs", () => {
+    return store.getPcSpecs();
+  });
+
+  ipcMain.handle("db-save-pc-spec", (event, pcSpec, originalPcIp) => {
+    return store.savePcSpec(pcSpec, originalPcIp);
+  });
+
+  ipcMain.handle("db-delete-pc-spec", (event, pcIp) => {
+    return store.deletePcSpec(pcIp);
   });
 
   ipcMain.handle("db-get-storage-info", () => {
@@ -73,6 +69,15 @@ function registerIpcHandlers({
   ipcMain.handle("db-change-password", (event, currentPass, newPass) => {
     return store.changePassword(currentPass, newPass);
   });
+
+  ipcMain.handle("db-get-gcash-number", () => {
+    return store.getGcashNumber();
+  });
+
+  ipcMain.handle("db-update-gcash-number", (event, gcashNumber) => {
+    return store.updateGcashNumber(gcashNumber);
+  });
+
   ipcMain.handle("save-cover-image", (event, params) => {
     return store.saveCoverImage(params);
   });

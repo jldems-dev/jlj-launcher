@@ -78,6 +78,19 @@ body {
     text-transform: uppercase;
 }
 
+.app-version {
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.06);
+    padding: 3px 8px;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: 0;
+    white-space: nowrap;
+}
+
 .window-controls {
     display: flex;
     gap: 8px;
@@ -150,6 +163,80 @@ body {
     background: rgba(255, 255, 255, 0.2);
 }
 
+.sidebar-clock {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg-card);
+    padding: 14px 12px;
+    margin-bottom: 18px;
+}
+
+.clock-time {
+    color: var(--text-primary);
+    font-size: 24px;
+    font-weight: 700;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.clock-date {
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 600;
+    margin-top: 8px;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sidebar-gcash { 
+    display: block;
+    align-items: center;
+    gap: 14px;
+    margin-top: auto;
+    min-width: 0;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg-card);
+    padding: 14px 12px; 
+} 
+
+.gcash-details {
+    background: #007aff;
+    border-radius: 12px;
+    padding: 8px;
+} 
+
+.gcash-logo-img,
+.gcash-qr-img {
+    width: 90px;
+    height: 90px;
+    object-fit: contain;
+    border-radius: 8px;
+}
+.gcash-image-link {
+    display: grid;
+    grid-template-columns: 80px 1fr;
+    gap: 12px;
+    align-items: center;
+    text-decoration: none;
+}
+
+.gcash-title{
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+.gcash-title-bottom {
+    color: var(--text-white);
+    font-size: 11px;
+    font-weight: 600;
+    margin-top: 8px;
+}
 .nav-section {
     margin-bottom: 28px;
 }
@@ -235,6 +322,124 @@ body {
 
 .main-content::-webkit-scrollbar-thumb:hover {
     background: rgba(255, 255, 255, 0.2);
+}
+.page-pc-info {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 14px;
+    margin: -28px -32px 24px;
+    padding: 24px 32px;
+    background-color: var(--bg-card);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.pc-info-card {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 32px;
+    min-width: 0;
+}
+
+.pc-info-card + .pc-info-card {
+    border-top: 1px solid var(--border);
+    padding-top: 14px;
+}
+
+.pc-info-empty {
+    color: var(--text-muted);
+    border: 1px dashed var(--border-hover);
+    border-radius: var(--radius);
+    padding: 18px;
+    font-size: 13px;
+    font-weight: 600;
+    text-align: center;
+}
+
+.page-pc-info > .page-pcname,
+.page-pc-info > .pc-specs {
+    display: none;
+}
+
+.page-windows{
+    color: var(--text-muted);
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+}
+
+.page-pc-ip {
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0;
+    margin-top: 8px;
+}
+
+.page-pcname {
+    font-size: clamp(58px, 8vw, 100px);
+    font-weight: 900; 
+    line-height: 1;
+    color: var(--text-primary);
+    letter-spacing: -2px;
+    flex-shrink: 0;
+    min-width: min(34vw, 340px);
+}
+
+.pc-specs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(220px, 1fr));
+    gap: 16px 32px;
+    width: 100%;
+    max-width: 780px;
+}
+
+.spec-item {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+}
+
+.spec-label {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 15px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-primary);
+    opacity: 0.75;
+}
+
+.spec-label img {
+    width: 16px;
+    height: 16px;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    font-size: 13px;
+    color: #ffffff;
+}
+
+.spec-value {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-secondary);
+
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.spec-extra {
+    font-size: 13px;
+    color: var(--text-secondary);
+    opacity: 0.75;
+    min-height: 17px;
 }
 
 .page-header {
@@ -741,6 +946,10 @@ body {
     transition: transform 0.3s ease;
 }
 
+.modal-wide {
+    width: 860px;
+}
+
 .modal-overlay.active .modal {
     transform: scale(1);
 }
@@ -849,6 +1058,130 @@ body {
     width: 100%;
     justify-content: center;
     margin-top: 8px;
+}
+
+.settings-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.settings-panel .form-group {
+    margin-bottom: 0;
+}
+
+.settings-section-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg-secondary);
+    padding: 14px;
+}
+
+.settings-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    flex: 0 0 40px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg-hover);
+}
+
+.settings-icon img {
+    width: 19px;
+    height: 19px;
+}
+
+.settings-title {
+    color: var(--text-primary);
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.settings-subtitle {
+    color: var(--text-muted);
+    font-size: 11px;
+    margin-top: 3px;
+}
+
+.pc-settings-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.pc-notes-input {
+    min-height: 78px;
+    resize: vertical;
+}
+
+.settings-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+}
+
+.pc-spec-list {
+    display: grid;
+    gap: 10px;
+}
+
+.pc-spec-list-empty {
+    color: var(--text-muted);
+    border: 1px dashed var(--border-hover);
+    border-radius: var(--radius);
+    padding: 14px;
+    font-size: 13px;
+    text-align: center;
+}
+
+.pc-spec-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg-secondary);
+    padding: 12px;
+}
+
+.pc-spec-row-main {
+    min-width: 0;
+}
+
+.pc-spec-row-title {
+    color: var(--text-primary);
+    font-size: 14px;
+    font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pc-spec-row-meta {
+    color: var(--text-muted);
+    font-size: 12px;
+    margin-top: 3px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pc-spec-row-actions {
+    display: flex;
+    gap: 8px;
+    flex: 0 0 auto;
+}
+
+.pc-row-btn {
+    padding: 8px 10px;
+    font-size: 12px;
 }
 
 .owner-badge {
@@ -1054,6 +1387,57 @@ body {
     .app-container {
         grid-template-columns: 220px 1fr;
     }
+
+    .clock-time {
+        font-size: 21px;
+    }
+
+    .clock-date {
+        font-size: 10px;
+    }
+
+    .sidebar-gcash {
+        gap: 10px;
+        padding: 10px;
+    }
+
+    .gcash-image-link {
+        flex-basis: 48px;
+        width: 48px;
+        height: 48px;
+        border-width: 2px;
+    }
+
+    .gcash-logo {
+        padding: 4px 8px 4px 5px;
+        font-size: 11px;
+    }
+
+    .gcash-logo span {
+        width: 14px;
+        height: 14px;
+        font-size: 9px;
+    }
+
+    .gcash-number {
+        font-size: 12px;
+        margin-top: 8px;
+    }
+
+    .pc-info-card {
+        align-items: flex-start;
+        gap: 22px;
+    }
+
+    .page-pcname {
+        font-size: clamp(42px, 6vw, 64px);
+        min-width: 220px;
+    }
+
+    .pc-specs {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
 }
 
 @media (max-width: 768px) {
@@ -1067,6 +1451,46 @@ body {
 
     .featured-title {
         font-size: 26px;
+    }
+
+    .page-pc-info {
+        margin: -24px -20px 20px;
+        padding: 20px;
+    }
+
+    .pc-info-card {
+        flex-direction: column;
+        gap: 16px;
+    }
+
+    .page-pcname {
+        min-width: 0;
+        width: 100%;
+        font-size: 42px;
+        letter-spacing: -1px;
+    }
+
+    .page-windows {
+        font-size: 12px;
+        letter-spacing: 0.5px;
+    }
+
+    .pc-settings-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .settings-actions,
+    .pc-spec-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .pc-spec-row-actions {
+        width: 100%;
+    }
+
+    .pc-row-btn {
+        flex: 1;
     }
 }
 

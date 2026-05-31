@@ -1,7 +1,11 @@
 const { app } = require("electron");
-app.disableHardwareAcceleration();
 const { bootstrap } = require("./src/main/main");
 
-app.whenReady().then(() => {
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
+
+if (!gotSingleInstanceLock) {
+  app.quit();
+} else {
+  app.disableHardwareAcceleration();
   bootstrap();
-});
+}

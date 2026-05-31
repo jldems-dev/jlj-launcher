@@ -1,6 +1,7 @@
 const OWNER_DEFAULTS = {
     username: 'jldems',
-    password: '0925'
+    password: '0925',
+    gcash_number: ''
 };
 
 function createDefaults() {

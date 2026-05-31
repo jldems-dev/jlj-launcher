@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.on("update-status", (_, data) => cb(data)),
   onUpdateProgress: (cb) =>
     ipcRenderer.on("update-progress", (_, data) => cb(data)),
+  getAppVersion: () => ipcRenderer.invoke("get-app-version"),
 
   launchGame: (gameId, launchMethod, appId, title) =>
     ipcRenderer.send("launch-game", gameId, launchMethod, appId, title),
@@ -31,6 +32,11 @@ contextBridge.exposeInMainWorld("electronAPI", {
   removeAllListeners: (channel) => ipcRenderer.removeAllListeners(channel),
 
   getGames: () => ipcRenderer.invoke("db-get-games"),
+  getLeft4Dead2Maps: () => ipcRenderer.invoke("db-get-left4dead2-maps"),
+  getPcSpecs: () => ipcRenderer.invoke("db-get-pc-specs"),
+  savePcSpec: (pcSpec, originalPcIp) =>
+    ipcRenderer.invoke("db-save-pc-spec", pcSpec, originalPcIp),
+  deletePcSpec: (pcIp) => ipcRenderer.invoke("db-delete-pc-spec", pcIp),
   saveCoverImage: (params) => ipcRenderer.invoke("save-cover-image", params),
   addGame: (game) => ipcRenderer.invoke("db-add-game", game),
   deleteGame: (id) => ipcRenderer.invoke("db-delete-game", id),
@@ -40,6 +46,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.invoke("db-verify-owner", username, password),
   changePassword: (currentPass, newPass) =>
     ipcRenderer.invoke("db-change-password", currentPass, newPass),
+  getGcashNumber: () => ipcRenderer.invoke("db-get-gcash-number"),
+  updateGcashNumber: (gcashNumber) =>
+    ipcRenderer.invoke("db-update-gcash-number", gcashNumber),
   getStorageInfo: () => ipcRenderer.invoke("db-get-storage-info"),
   createRoom: (data) => ipcRenderer.invoke("create-room", data),
   getRooms: () => ipcRenderer.invoke("get-rooms"),
@@ -47,7 +56,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
   checkGameUpdates: () => ipcRenderer.invoke("check-game-updates"),
 
   openExternal: (url) => ipcRenderer.send("open-external", url),
-  restartApp: () => ipcRenderer.send("restart-app"),
   onInstallProgress: (callback) =>
     ipcRenderer.on("install-progress", (event, data) => callback(data)),
 

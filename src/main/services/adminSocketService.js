@@ -10,7 +10,7 @@ const runtimeState = require("./runtimeState");
 const popupWindowService = require("./popupWindowService");
 
 const PC_SECRET = process.env.PC_SECRET;
-const SERVER_URL = "http://localhost:3002/";
+const SERVER_URL = process.env.SERVER_URL; 
 
 let socket = null;
 let monitoringInterval = null;

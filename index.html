@@ -16,6 +16,7 @@
         <div class="title-bar-left">
             <img class="logo-mark" src="assets/images/android-chrome-192x192.png" alt="JLJGAMINGHOUSE">
             <span class="brand-name">JLJGAMINGHOUSE</span>
+            <span class="app-version" id="appVersion">v1.0.18</span>
         </div>
         <div class="window-controls">
             <button class="win-btn btn-minimize" id="windowMinimizeButton" title="Minimize"></button>
@@ -26,6 +27,10 @@
 
     <div class="app-container">
         <aside class="sidebar">
+            <div class="sidebar-clock" aria-label="Current time">
+                <div class="clock-time" id="sidebarClockTime">--:--</div>
+                <div class="clock-date" id="sidebarClockDate">Loading date</div>
+            </div>
             <div class="nav-section">
                 <div class="nav-header">Library</div>
                 <div class="nav-item active" onclick="switchTab(this, 'library')">
@@ -100,10 +105,65 @@
                     <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
                     Add Game
                 </div>
+                <div class="nav-item" id="ownerSettingsNav" style="display: none;" onclick="openOwnerSettings()">
+                    <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                        <circle cx="12" cy="12" r="3"></circle>
+                        <path d="M19.4 15a1.7 1.7 0 00.34 1.88l.04.04a2 2 0 01-2.83 2.83l-.04-.04A1.7 1.7 0 0015 19.4a1.7 1.7 0 00-1 1.55V21a2 2 0 01-4 0v-.05a1.7 1.7 0 00-1-1.55 1.7 1.7 0 00-1.88.34l-.04.04a2 2 0 01-2.83-2.83l.04-.04A1.7 1.7 0 004.6 15a1.7 1.7 0 00-1.55-1H3a2 2 0 010-4h.05A1.7 1.7 0 004.6 9a1.7 1.7 0 00-.34-1.88l-.04-.04a2 2 0 012.83-2.83l.04.04A1.7 1.7 0 009 4.6a1.7 1.7 0 001-1.55V3a2 2 0 014 0v.05a1.7 1.7 0 001 1.55 1.7 1.7 0 001.88-.34l.04-.04a2 2 0 012.83 2.83l-.04.04A1.7 1.7 0 0019.4 9a1.7 1.7 0 001.55 1H21a2 2 0 010 4h-.05A1.7 1.7 0 0019.4 15z"></path>
+                    </svg>
+                    Settings
+                </div>
+            </div>
+            <div class="sidebar-gcash">
+                <div class="gcash-title">GCASH: with image</div>
+                <div class="gcash-details">
+                    <a href="assets/images/gcash-full.JPG" target="_blank" rel="noopener noreferrer" class="gcash-image-link" title="Open GCash QR">
+                        <img class="gcash-logo-img" src="assets/images/gcash-logo.png" alt="GCash Logo"> 
+                        <img class="gcash-qr-img" src="assets/images/gcash-qr.jpg" alt="GCash QR"> 
+                    </a>
+                </div> 
+                <div class="gcash-title-bottom">GCASH: QR Code & Account Info</div>
             </div>
         </aside>
 
+        
         <main class="main-content">
+            <div class="page-pc-info animate-in" id="pcInfoList">
+                <div class="pc-info-empty">No PC information configured.</div>
+                <div class="page-pcname">
+                    <div>PC1</div>
+                    <div class="page-windows">Windows 11 | 22H2</div>
+                </div>
+                <div class="pc-specs">
+                    <div class="spec-item">
+                        <div class="spec-label">
+                            <img src="assets/icons/hard-drive.svg" alt="">
+                            <span>RAM: <span class="spec-value">16GB DDR4 3200MHz</span></span>
+                        </div>
+                        <span class="spec-extra">(Used: 8GB)</span>
+                    </div>
+                    <div class="spec-item">
+                        <div class="spec-label">
+                            <img src="assets/icons/cpu.svg" alt="">
+                            <span>CPU: <span class="spec-value">RYZEN 5 5600GT</span></span>
+                        </div>
+                        <span class="spec-extra">—</span>
+                    </div>
+                    <div class="spec-item">
+                        <div class="spec-label">
+                            <img src="assets/icons/image.svg" alt="">
+                            <span>GPU: <span class="spec-value">NVIDIA GeForce RTX 4080</span></span>
+                        </div>
+                        <span class="spec-extra">(VRAM: 16GB)</span>
+                    </div>
+                    <div class="spec-item">
+                        <div class="spec-label">
+                            <img src="assets/icons/wifi.svg" alt="">
+                            <span>Network: </span>
+                        </div> 
+                        <span class="spec-extra">1Gbps / 100Mbps</span>
+                    </div>
+                </div>
+            </div>
             <div class="page-header animate-in">
                 <h1 class="page-title" id="pageTitle">Game Library</h1>
                 <div class="header-actions">
@@ -246,6 +306,90 @@
                 <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
                 Add Game
             </button>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="ownerSettingsModal">
+        <div class="modal modal-wide">
+            <div class="modal-header">
+                <h3 class="modal-title">Settings</h3>
+                <button class="modal-close" onclick="closeOwnerSettings()">x</button>
+            </div>
+            <div class="settings-panel">
+                <div class="settings-section-header">
+                    <div class="settings-icon">
+                        <img src="assets/icons/cpu.svg" alt="">
+                    </div>
+                    <div>
+                        <div class="settings-title">PC Information Management</div>
+                        <div class="settings-subtitle">Manual PC specifications shown on the PC information page</div>
+                    </div>
+                </div>
+
+                <input type="hidden" id="pcOriginalIp">
+
+                <div class="pc-settings-grid">
+                    <div class="form-group">
+                        <label class="form-label">PC IP</label>
+                        <input type="text" class="form-input" placeholder="192.168.1.10" id="pcIp">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">PC Name</label>
+                        <input type="text" class="form-input" placeholder="PC1" id="pcNameInput">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Windows Version</label>
+                        <input type="text" class="form-input" placeholder="Windows 11 | 22H2" id="pcWindowsVersion">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">RAM</label>
+                        <input type="text" class="form-input" placeholder="16GB DDR4 3200MHz" id="pcRam">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">RAM Usage</label>
+                        <input type="text" class="form-input" placeholder="8GB used" id="pcRamUsage">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">CPU</label>
+                        <input type="text" class="form-input" placeholder="Ryzen 5 5600GT" id="pcCpu">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">GPU</label>
+                        <input type="text" class="form-input" placeholder="NVIDIA GeForce RTX 4080" id="pcGpu">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">VRAM</label>
+                        <input type="text" class="form-input" placeholder="16GB" id="pcVram">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Network Speed</label>
+                        <input type="text" class="form-input" placeholder="1Gbps / 100Mbps" id="pcNetworkSpeed">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Storage</label>
+                        <input type="text" class="form-input" placeholder="1TB NVMe SSD" id="pcStorage">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Motherboard</label>
+                        <input type="text" class="form-input" placeholder="B550M" id="pcMotherboard">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Monitor</label>
+                        <input type="text" class="form-input" placeholder="24-inch 165Hz" id="pcMonitor">
+                    </div>
+                    <div class="form-group full-width">
+                        <label class="form-label">Other PC Details</label>
+                        <textarea class="form-input pc-notes-input" placeholder="Keyboard, mouse, headset, notes..." id="pcNotes"></textarea>
+                    </div>
+                </div>
+
+                <div class="settings-actions">
+                    <button class="btn btn-play" id="savePcSpecButton">Save PC</button>
+                    <button class="btn" id="clearPcSpecButton">Clear Form</button>
+                </div>
+
+                <div class="pc-spec-list" id="pcSpecList"></div>
+            </div>
         </div>
     </div>
 
@@ -499,6 +643,20 @@
 
     <div class="toast-container" id="toastContainer"></div>
 
-    <script src="src/renderer/index.js"></script>
+    <script src="src/renderer/core/state.js"></script>
+    <script src="src/renderer/features/appUpdates.js"></script>
+    <script src="src/renderer/shared/toast.js"></script>
+    <script src="src/renderer/features/windowControls.js"></script>
+    <script src="src/renderer/features/crudControls.js"></script>
+    <script src="src/renderer/features/library.js"></script>
+    <script src="src/renderer/features/hosting.js"></script>
+    <script src="src/renderer/features/gameUpdates.js"></script>
+    <script src="src/renderer/shared/externalLinks.js"></script>
+    <script src="src/renderer/shared/ui.js"></script>
+    <script src="src/renderer/shared/clock.js"></script>
+    <script src="src/renderer/features/ownerSettings.js"></script>
+    <script src="src/renderer/features/qos.js"></script>
+    <script src="src/renderer/features/controlPanel.js"></script>
+    <script src="src/renderer/core/init.js"></script>
 </body>
 </html>

@@ -2,9 +2,9 @@ const { exec } = require("child_process");
 const util = require("util");
 const path = require("path");
 const { app } = require("electron");
-const fs = require("fs");
 
 const execAsync = util.promisify(exec);
+const QOS_THROTTLE_SETTING = "qosThrottle";
 
 const QOS_CONFIG = {
   3: { rate: 100000, label: "3 Mbps" },
@@ -19,7 +19,7 @@ const BRAVE_EXE =
 class QosService {
   constructor() {
     this.currentThrottle = null;
-    this.configPath = path.join(app.getPath("userData"), "qos.json");
+    this.store = null;
     this.elevatorPath = path.join(
       app.getAppPath(),
       "..",
@@ -27,12 +27,15 @@ class QosService {
       "elevator.exe",
     );
   }
+
+  setStore(store) {
+    this.store = store;
+  }
+
   saveConfig(mbps) {
     try {
-      fs.writeFileSync(
-        this.configPath,
-        JSON.stringify({ throttle: mbps }, null, 2),
-      );
+      this.currentThrottle = mbps || null;
+      this.store?.setSetting(QOS_THROTTLE_SETTING, this.currentThrottle);
     } catch (err) {
       console.error("Failed to save QoS config:", err);
     }
@@ -40,13 +43,8 @@ class QosService {
 
   loadConfig() {
     try {
-      if (!fs.existsSync(this.configPath)) {
-        return null;
-      }
-
-      console.log(this.configPath);
-
-      return JSON.parse(fs.readFileSync(this.configPath, "utf8"));
+      const throttle = this.store?.getSetting(QOS_THROTTLE_SETTING);
+      return throttle ? { throttle: Number(throttle) } : null;
     } catch (err) {
       console.error("Failed to load QoS config:", err);
       return null;

@@ -25,6 +25,27 @@ function bootstrap() {
   const getMainWindow = () => mainWindow;
 
   const store = createGameStore(app); 
+  qosService.setStore(store);
+
+  function focusWindow(win) {
+    if (!win || win.isDestroyed()) return false;
+
+    if (win.isMinimized()) win.restore();
+    if (!win.isVisible()) win.show();
+
+    win.focus();
+    win.moveTop();
+    return true;
+  }
+
+  function focusExistingInstance() {
+    if (focusWindow(mainWindow)) return;
+    focusWindow(splash);
+  }
+
+  app.on("second-instance", () => {
+    focusExistingInstance();
+  });
 
   // =========================
   // AUTO UPDATER
@@ -37,7 +58,7 @@ function bootstrap() {
       win.webContents.send("update-status", { status: "checking" });
     });
 
-    autoUpdater.on("update-available", (info) => {
+    autoUpdater.on("update-available", (info) => { 
       win.webContents.send("update-status", {
         status: "available",
         version: info.version,
@@ -106,6 +127,9 @@ function bootstrap() {
   // APP START
   // =========================
   app.whenReady().then(async () => {
+    app.setLoginItemSettings({
+      openAtLogin: true,
+    });
     // 1. SHOW SPLASH IMMEDIATELY
     splash = new (require("electron").BrowserWindow)({
       width: 420,
@@ -116,6 +140,7 @@ function bootstrap() {
     });
     splash.loadFile(path.join(__dirname, "../renderer/splash.html")); 
     try {
+      await store.init();
       // 2. RESTORE QOS WHILE SPLASH IS VISIBLE
       await qosService.restoreThrottle();
     } catch (err) {
@@ -129,8 +154,6 @@ function bootstrap() {
     mainWindow.once("ready-to-show", async () => {
       try {
         // 5. BACKGROUND BOOTSTRAP
-        await store.init();
-
         setupAutoUpdates(mainWindow);
 
         connectSocket();
