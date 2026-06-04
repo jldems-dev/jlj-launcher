@@ -169,3 +169,112 @@ function closeWindow() {
   openExitModal();
 }
 
+// ============================================================
+// PC POWER CONFIRMATION
+// ============================================================
+const POWER_ACTIONS = {
+  restart: {
+    title: "Restart PC?",
+    message: "This will restart this Windows PC now. Make sure all active work is saved before continuing.",
+    buttonText: "Restart PC",
+    icon: `
+      <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v6h6"></path>
+      <path stroke-linecap="round" stroke-linejoin="round" d="M20 20v-6h-6"></path>
+      <path stroke-linecap="round" stroke-linejoin="round" d="M20 9a8 8 0 00-13.66-4.66L4 6.68"></path>
+      <path stroke-linecap="round" stroke-linejoin="round" d="M4 15a8 8 0 0013.66 4.66L20 17.32"></path>
+    `,
+  },
+  shutdown: {
+    title: "Shutdown PC?",
+    message: "This will shut down this Windows PC now. Make sure all active work is saved before continuing.",
+    buttonText: "Shutdown PC",
+    icon: `
+      <path stroke-linecap="round" stroke-linejoin="round" d="M12 2v10"></path>
+      <path stroke-linecap="round" stroke-linejoin="round" d="M18.36 6.64a9 9 0 11-12.72 0"></path>
+    `,
+  },
+};
+
+function openPowerConfirmModal(action) {
+  const config = POWER_ACTIONS[action];
+  if (!config) return;
+
+  closePowerConfirmModal();
+
+  const overlay = document.createElement("div");
+  overlay.id = "powerConfirmModalOverlay";
+  overlay.className = "exit-modal-overlay";
+  overlay.innerHTML = `
+    <div class="exit-modal">
+      <div class="exit-modal-header">
+        <div class="exit-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            ${config.icon}
+          </svg>
+        </div>
+        <h3>${config.title}</h3>
+      </div>
+
+      <div class="exit-modal-body">
+        <div class="exit-warning">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ff6b6b" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+          </svg>
+          <span>This action affects the whole PC.</span>
+        </div>
+        <p class="exit-message">${config.message}</p>
+      </div>
+
+      <div class="exit-modal-actions">
+        <button class="exit-btn exit-btn-cancel" onclick="closePowerConfirmModal()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+          Cancel
+        </button>
+        <button class="exit-btn exit-btn-confirm" onclick="confirmPowerAction('${action}')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            ${config.icon}
+          </svg>
+          ${config.buttonText}
+        </button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => overlay.classList.add("active"));
+
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) closePowerConfirmModal();
+  });
+}
+
+function closePowerConfirmModal() {
+  const overlay = $("powerConfirmModalOverlay");
+  if (!overlay) return;
+
+  overlay.classList.remove("active");
+  setTimeout(() => overlay.remove(), 300);
+}
+
+async function confirmPowerAction(action) {
+  try {
+    if (action === "restart") {
+      await window.electronAPI.restartPc();
+      return;
+    }
+
+    if (action === "shutdown") {
+      await window.electronAPI.shutdownPc();
+    }
+  } catch (error) {
+    console.error(`Failed to ${action} PC:`, error);
+    showToast(`Failed to ${action} PC`, "error");
+    closePowerConfirmModal();
+  }
+}
+

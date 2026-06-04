@@ -10,3 +10,17 @@ function openExternal(url) {
   }
 }
 
+async function openMultipleRobloxInstances() {
+  try {
+    showToast("Opening Multiple Roblox Instances...", "info");
+
+    if (!window.electronAPI?.openMultipleRobloxInstances) {
+      throw new Error("Launcher API is unavailable");
+    }
+
+    await window.electronAPI.openMultipleRobloxInstances();
+  } catch (err) {
+    showToast(err.message || "Failed to open Multiple Roblox Instances", "error");
+  }
+}
+

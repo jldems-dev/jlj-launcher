@@ -4,6 +4,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
   minimize: () => ipcRenderer.send("window-minimize"),
   maximize: () => ipcRenderer.send("window-maximize"),
   close: () => ipcRenderer.send("window-close"),
+  restartPc: () => ipcRenderer.invoke("pc:restart"),
+  shutdownPc: () => ipcRenderer.invoke("pc:shutdown"),
 
   onUpdateStatus: (cb) =>
     ipcRenderer.on("update-status", (_, data) => cb(data)),
@@ -49,6 +51,10 @@ contextBridge.exposeInMainWorld("electronAPI", {
   getGcashNumber: () => ipcRenderer.invoke("db-get-gcash-number"),
   updateGcashNumber: (gcashNumber) =>
     ipcRenderer.invoke("db-update-gcash-number", gcashNumber),
+  getServerUrl: () => ipcRenderer.invoke("db-get-server-url"),
+  saveServerUrl: (serverUrl) =>
+    ipcRenderer.invoke("db-save-server-url", serverUrl),
+  deleteServerUrl: () => ipcRenderer.invoke("db-delete-server-url"),
   getStorageInfo: () => ipcRenderer.invoke("db-get-storage-info"),
   createRoom: (data) => ipcRenderer.invoke("create-room", data),
   getRooms: () => ipcRenderer.invoke("get-rooms"),
@@ -56,16 +62,13 @@ contextBridge.exposeInMainWorld("electronAPI", {
   checkGameUpdates: () => ipcRenderer.invoke("check-game-updates"),
 
   openExternal: (url) => ipcRenderer.send("open-external", url),
+  openMultipleRobloxInstances: () =>
+    ipcRenderer.invoke("open-multiple-roblox-instances"),
   onInstallProgress: (callback) =>
     ipcRenderer.on("install-progress", (event, data) => callback(data)),
-
-  // ─── QoS / Brave Throttle ───
-  qosApply: (mbps) => ipcRenderer.invoke("qos:apply", mbps),
-  qosRemove: () => ipcRenderer.invoke("qos:remove"),
-  qosStatus: () => ipcRenderer.invoke("qos:status"),
-
-  // ─── Control Panel ───
   lockControlPanel: () => ipcRenderer.invoke("cp:lock"),
   unlockControlPanel: () => ipcRenderer.invoke("cp:unlock"),
   getCpStatus: () => ipcRenderer.invoke("cp:status"),
+  openWindowsControlPanel: () => ipcRenderer.invoke("cp:open-control-panel"),
+  openLocalGroupPolicyEditor: () => ipcRenderer.invoke("cp:open-gpedit"),
 });

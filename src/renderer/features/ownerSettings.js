@@ -19,10 +19,55 @@ let cachedPcSpecs = [];
 function bindOwnerSettings() {
   $("savePcSpecButton")?.addEventListener("click", savePcSpecFromSettings);
   $("clearPcSpecButton")?.addEventListener("click", clearPcSpecForm);
+  $("saveServerUrlButton")?.addEventListener("click", saveServerUrlFromSettings);
+  $("deleteServerUrlButton")?.addEventListener("click", deleteServerUrlFromSettings);
 
   $("ownerSettingsModal")?.addEventListener("click", (e) => {
     if (e.target === e.currentTarget) closeOwnerSettings();
   });
+}
+
+function normalizeServerUrlInput(value) {
+  const rawValue = String(value || "").trim();
+  if (!rawValue) throw new Error("Server URL is required");
+
+  let parsed;
+  try {
+    parsed = new URL(rawValue);
+  } catch {
+    throw new Error("Enter a valid server URL");
+  }
+
+  if (!["http:", "https:"].includes(parsed.protocol)) {
+    throw new Error("Server URL must start with http:// or https://");
+  }
+
+  if (!parsed.hostname) {
+    throw new Error("Server URL must include a hostname");
+  }
+
+  parsed.hash = "";
+  parsed.search = "";
+  return parsed.toString().replace(/\/$/, "");
+}
+
+async function loadServerUrlSetting() {
+  const input = $("serverUrlInput");
+  const status = $("serverUrlStatus");
+
+  try {
+    const serverUrl = window.electronAPI?.getServerUrl
+      ? await window.electronAPI.getServerUrl()
+      : "";
+
+    if (input) input.value = serverUrl || "";
+    if (status) status.textContent = serverUrl ? `Current server: ${serverUrl}` : "No server URL saved.";
+    return serverUrl;
+  } catch (error) {
+    console.error("Failed to load server URL:", error);
+    if (status) status.textContent = "Failed to load server URL.";
+    return "";
+  }
 }
 
 async function loadOwnerSettingsDisplay() {
@@ -157,6 +202,7 @@ async function openOwnerSettings() {
     return;
   }
 
+  await loadServerUrlSetting();
   await loadPcSpecsDisplay();
   $("ownerSettingsModal")?.classList.add("active");
 }
@@ -224,6 +270,59 @@ async function savePcSpecFromSettings() {
   } catch (error) {
     console.error("Failed to save PC specs:", error);
     showToast("Failed to save PC information", "error");
+  }
+}
+
+async function saveServerUrlFromSettings() {
+  if (!State.isOwnerLoggedIn) {
+    showToast("Owner login required", "error");
+    closeOwnerSettings();
+    return;
+  }
+
+  let serverUrl;
+  try {
+    serverUrl = normalizeServerUrlInput($("serverUrlInput")?.value || "");
+  } catch (error) {
+    showToast(error.message, "info");
+    $("serverUrlInput")?.focus();
+    return;
+  }
+
+  try {
+    if (!window.electronAPI?.saveServerUrl) {
+      throw new Error("Server URL API is unavailable");
+    }
+
+    const savedServerUrl = await window.electronAPI.saveServerUrl(serverUrl);
+    if ($("serverUrlInput")) $("serverUrlInput").value = savedServerUrl;
+    if ($("serverUrlStatus")) $("serverUrlStatus").textContent = `Current server: ${savedServerUrl}`;
+    showToast("Server URL saved", "success");
+  } catch (error) {
+    console.error("Failed to save server URL:", error);
+    showToast(error.message || "Failed to save server URL", "error");
+  }
+}
+
+async function deleteServerUrlFromSettings() {
+  if (!State.isOwnerLoggedIn) {
+    showToast("Owner login required", "error");
+    closeOwnerSettings();
+    return;
+  }
+
+  try {
+    if (!window.electronAPI?.deleteServerUrl) {
+      throw new Error("Server URL API is unavailable");
+    }
+
+    await window.electronAPI.deleteServerUrl();
+    if ($("serverUrlInput")) $("serverUrlInput").value = "";
+    if ($("serverUrlStatus")) $("serverUrlStatus").textContent = "No server URL saved.";
+    showToast("Server URL deleted", "success");
+  } catch (error) {
+    console.error("Failed to delete server URL:", error);
+    showToast("Failed to delete server URL", "error");
   }
 }
 

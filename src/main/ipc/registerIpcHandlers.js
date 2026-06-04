@@ -1,4 +1,9 @@
+const { exec } = require("child_process");
+const util = require("util");
+const path = require("path");
 const { app, shell } = require('electron'); 
+
+const execAsync = util.promisify(exec);
 
 function registerIpcHandlers({
   ipcMain,
@@ -10,9 +15,9 @@ function registerIpcHandlers({
   hostService,
   updateService,
   getMainWindow,
-  qosService, 
   cpService,
   popupWindowService,
+  adminSocketService,
 }) {
   ipcMain.handle("check-for-updates", () => {
     autoUpdater.checkForUpdates();
@@ -78,6 +83,18 @@ function registerIpcHandlers({
     return store.updateGcashNumber(gcashNumber);
   });
 
+  ipcMain.handle("db-get-server-url", () => {
+    return adminSocketService.getServerUrl(store);
+  });
+
+  ipcMain.handle("db-save-server-url", (event, serverUrl) => {
+    return adminSocketService.saveServerUrl(store, serverUrl);
+  });
+
+  ipcMain.handle("db-delete-server-url", () => {
+    return adminSocketService.deleteServerUrl(store);
+  });
+
   ipcMain.handle("save-cover-image", (event, params) => {
     return store.saveCoverImage(params);
   });
@@ -120,6 +137,21 @@ function registerIpcHandlers({
     shell.openExternal(url);
   });
 
+  ipcMain.handle("open-multiple-roblox-instances", async () => {
+    const exePath = path.join(
+      app.getAppPath(),
+      "instance",
+      "Multiple ROBLOX.exe",
+    );
+    const error = await shell.openPath(exePath);
+
+    if (error) {
+      throw new Error(error);
+    }
+
+    return { success: true };
+  });
+
   ipcMain.on("window-minimize", () => {
     const mainWindow = getMainWindow();
     if (mainWindow && !mainWindow.isDestroyed()) mainWindow.minimize();
@@ -135,6 +167,16 @@ function registerIpcHandlers({
     if (mainWindow && !mainWindow.isDestroyed()) mainWindow.close();
   });
 
+  ipcMain.handle("pc:restart", async () => {
+    await execAsync("shutdown /r /t 0");
+    return { success: true };
+  });
+
+  ipcMain.handle("pc:shutdown", async () => {
+    await execAsync("shutdown /s /t 0");
+    return { success: true };
+  });
+
   // Room hosting handlers
   ipcMain.handle("create-room", async (event, payload) => {
     return hostService.createRoom(payload);
@@ -147,20 +189,6 @@ function registerIpcHandlers({
   ipcMain.handle("close-room", async (event, roomId) => {
     return hostService.closeRoom(roomId);
   });
-
-  // ─── QoS / Brave Throttle ───
-  ipcMain.handle("qos:apply", async (event, mbps) => {
-    return qosService.applyThrottle(mbps);
-  });
-
-  ipcMain.handle("qos:remove", async () => {
-    return qosService.removeThrottle();
-  });
-
-  ipcMain.handle("qos:status", async () => {
-    return qosService.getStatus();
-  });
-
   ipcMain.on("show-popup-window", (_, data) => {
     popupWindowService.showPopup(data);
   });
@@ -176,6 +204,14 @@ function registerIpcHandlers({
 
   ipcMain.handle("cp:status", async () => {
     return cpService.getStatus();
+  });
+
+  ipcMain.handle("cp:open-control-panel", async () => {
+    return cpService.openWindowsControlPanel();
+  });
+
+  ipcMain.handle("cp:open-gpedit", async () => {
+    return cpService.openLocalGroupPolicyEditor();
   });
 }
 

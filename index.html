@@ -55,16 +55,17 @@
             </div> 
             <div class="nav-section">
                 <div class="nav-header">Tools</div>
-                <div class="nav-item" onclick="openExternal('https://google.com')">
+                <div class="nav-item" onclick="openExternal('https://google.com')"> 
                     <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg>
-                    Browser
+                    Brave Browser
                 </div>
-                <div class="nav-item" id="addBraveQos" style="display: none;" onclick="openQosModal()" >
+                <div class="nav-item" onclick="openMultipleRobloxInstances()">
+                    
                     <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-                        <path d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M8 8h8v8H8z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 4h8v8H4zM12 12h8v8h-8z"/>
                     </svg>
-                    Brave QoS
-                    <span class="tag" id="qosNavBadge" style="display: none; margin-left: auto; font-size: 10px; padding: 2px 8px;"></span>
+                    Multiple Roblox
                 </div>
                 <div class="nav-item" id="addControlPanel" style="display: none;" onclick="openCPModal()" >
                     <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
@@ -77,22 +78,13 @@
                     Control Panel
                     <span class="tag" id="cpNavBadge" style="display: none; margin-left: auto; font-size: 10px; padding: 2px 8px;"></span>
                 </div>
-            </div>
-
-            <!-- QoS Panel (hidden by default) -->
-            <div class="qos-panel" id="qosPanel" style="display: none;">
-                <div class="qos-header">
-                    <span class="qos-title">Brave Throttle</span>
-                    <span class="qos-status" id="qosStatusText">Checking...</span>
+                <div class="nav-item" id="openGpeditNav" style="display: none;" onclick="openLocalGroupPolicyEditor()" >
+                    <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 5h16v14H4z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M8 9h8M8 13h5"/>
+                    </svg>
+                    Local Group Policy
                 </div>
-                <div class="qos-buttons">
-                    <button class="qos-btn" id="qosBtn3" onclick="setQosThrottle(3)">3 Mbps</button>
-                    <button class="qos-btn" id="qosBtn4" onclick="setQosThrottle(4)">4 Mbps</button>
-                    <button class="qos-btn" id="qosBtn5" onclick="setQosThrottle(5)">5 Mbps</button>
-                </div>
-                <button class="qos-disable-btn" id="qosBtnDisable" onclick="removeQosThrottle()" style="display: none;">
-                    Disable Throttle
-                </button>
             </div>
             <div class="nav-section">
                 <div class="nav-header">Owner</div>
@@ -122,6 +114,24 @@
                     </a>
                 </div> 
                 <div class="gcash-title-bottom">GCASH: QR Code & Account Info</div>
+            </div>
+            <div class="sidebar-power-actions" aria-label="PC power actions">
+                <button class="power-action-btn power-restart" type="button" onclick="openPowerConfirmModal('restart')">
+                    <svg class="power-action-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v6h6"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M20 20v-6h-6"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M20 9a8 8 0 00-13.66-4.66L4 6.68"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 15a8 8 0 0013.66 4.66L20 17.32"/>
+                    </svg>
+                    Restart PC
+                </button>
+                <button class="power-action-btn power-shutdown" type="button" onclick="openPowerConfirmModal('shutdown')">
+                    <svg class="power-action-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 2v10"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M18.36 6.64a9 9 0 11-12.72 0"/>
+                    </svg>
+                    Shutdown PC
+                </button>
             </div>
         </aside>
 
@@ -318,6 +328,29 @@
             <div class="settings-panel">
                 <div class="settings-section-header">
                     <div class="settings-icon">
+                        <img src="assets/icons/globe.svg" alt="">
+                    </div>
+                    <div>
+                        <div class="settings-title">Socket.IO Server</div>
+                        <div class="settings-subtitle">Saved server URL used by the client connection</div>
+                    </div>
+                </div>
+
+                <div class="server-settings-row">
+                    <div class="form-group">
+                        <label class="form-label">Server URL</label>
+                        <input type="url" class="form-input" placeholder="https://example.com" id="serverUrlInput">
+                    </div>
+                    <div class="settings-actions server-settings-actions">
+                        <button class="btn btn-play" id="saveServerUrlButton">Save URL</button>
+                        <button class="btn btn-danger" id="deleteServerUrlButton">Delete URL</button>
+                    </div>
+                </div>
+
+                <div class="server-url-status" id="serverUrlStatus">No server URL saved.</div>
+
+                <div class="settings-section-header">
+                    <div class="settings-icon">
                         <img src="assets/icons/cpu.svg" alt="">
                     </div>
                     <div>
@@ -485,70 +518,6 @@
             </div>
         </div>
     </div>
-    <!-- QoS Throttle Modal --> 
-    <div class="modal-overlay" id="qosModal">
-        <div class="modal" style="max-width: 480px;">
-            <div class="modal-header">
-                <div>
-                    <h3 class="modal-title">Brave QoS Control</h3>
-                    <p style="font-size: 13px; color: var(--text-muted); margin-top: 4px;">Limit Brave browser bandwidth</p>
-                </div>
-                <button class="modal-close" onclick="closeQosModal()">✕</button>
-            </div>
-
-            <!-- Status Card (matches host-game-info) -->
-            <div class="qos-status-card" id="qosStatusCard">
-                <div class="qos-status-icon-wrap" id="qosStatusIconWrap">
-                    <svg width="32" height="32" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-                        <path d="M13 10V3L4 14h7v7l9-11h-7z"/>
-                    </svg>
-                </div>
-                <div class="qos-status-details">
-                    <div class="qos-status-title" id="qosStatusTitle">No Throttle Active</div>
-                    <div class="qos-status-tags">
-                        <span class="tag" id="qosStatusTag">Full Speed</span>
-                        <span class="tag" id="qosStatusTag2">Unrestricted</span>
-                    </div>
-                    <div class="qos-status-desc" id="qosStatusDesc">Brave is running at maximum bandwidth</div>
-                </div>
-            </div>
-
-            <!-- Presets Panel (matches host-room-panel) -->
-            <div class="qos-presets-panel">
-                <div class="host-room-header" style="margin-top: 0;">
-                    <div>
-                        <h3>Speed Presets</h3>
-                        <p>Select a bandwidth limit for Brave</p>
-                    </div>
-                </div>
-
-                <div class="qos-form-grid">
-                    <div class="qos-preset-box" id="qosPreset3" onclick="setQosThrottle(3)">
-                        <div class="qos-preset-value">3</div>
-                        <div class="qos-preset-label">Mbps</div>
-                        <div class="qos-preset-hint">~3 Mbps speedtest</div>
-                    </div>
-                    <div class="qos-preset-box" id="qosPreset4" onclick="setQosThrottle(4)">
-                        <div class="qos-preset-value">4</div>
-                        <div class="qos-preset-label">Mbps</div>
-                        <div class="qos-preset-hint">~4 Mbps speedtest</div>
-                    </div>
-                    <div class="qos-preset-box" id="qosPreset5" onclick="setQosThrottle(5)">
-                        <div class="qos-preset-value">5</div>
-                        <div class="qos-preset-label">Mbps</div>
-                        <div class="qos-preset-hint">~5 Mbps speedtest</div>
-                    </div>
-                </div>
-
-                <button class="btn btn-danger btn-full" id="qosDisableBtn" onclick="removeQosThrottle()" style="display: none; margin-top: 16px;">
-                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-                        <path d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
-                    </svg>
-                    Disable Throttle
-                </button>
-            </div>
-        </div>
-    </div>
     <!-- Control Panel Modal --> 
     <div class="modal-overlay" id="cpModal">
         <div class="modal" style="max-width: 480px;">
@@ -561,25 +530,25 @@
             </div>
 
             <!-- Status Card -->
-            <div class="qos-status-card" id="cpStatusCard">
-                <div class="qos-status-icon-wrap" id="cpStatusIconWrap">
+            <div class="tool-status-card" id="cpStatusCard">
+                <div class="tool-status-icon-wrap" id="cpStatusIconWrap">
                     <svg width="32" height="32" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
                         <path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
                         <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
                     </svg>
                 </div>
-                <div class="qos-status-details">
-                    <div class="qos-status-title" id="cpStatusTitle">Control Panel Unlocked</div>
-                    <div class="qos-status-tags">
+                <div class="tool-status-details">
+                    <div class="tool-status-title" id="cpStatusTitle">Control Panel Unlocked</div>
+                    <div class="tool-status-tags">
                         <span class="tag" id="cpStatusTag">Accessible</span>
                         <span class="tag" id="cpStatusTag2">Full Access</span>
                     </div>
-                    <div class="qos-status-desc" id="cpStatusDesc">Users can open Control Panel and Settings</div>
+                    <div class="tool-status-desc" id="cpStatusDesc">Users can open Control Panel and Settings</div>
                 </div>
             </div>
 
             <!-- Action Panel -->
-            <div class="qos-presets-panel">
+            <div class="tool-presets-panel">
                 <div class="host-room-header" style="margin-top: 0;">
                     <div>
                         <h3>Access Control</h3>
@@ -587,24 +556,24 @@
                     </div>
                 </div>
 
-                <div class="qos-form-grid" style="grid-template-columns: 1fr 1fr;">
-                    <div class="qos-preset-box" id="cpPresetLock" onclick="lockControlPanel()">
-                        <div class="qos-preset-value">
+                <div class="tool-form-grid" style="grid-template-columns: 1fr 1fr;">
+                    <div class="tool-preset-box" id="cpPresetLock" onclick="lockControlPanel()">
+                        <div class="tool-preset-value">
                             <svg width="28" height="28" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
                                 <path d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/>
                             </svg>
                         </div>
-                        <div class="qos-preset-label" style="margin-top: 8px;">Lock</div>
-                        <div class="qos-preset-hint">Block Control Panel</div>
+                        <div class="tool-preset-label" style="margin-top: 8px;">Lock</div>
+                        <div class="tool-preset-hint">Block Control Panel</div>
                     </div>
-                    <div class="qos-preset-box" id="cpPresetUnlock" onclick="unlockControlPanel()">
-                        <div class="qos-preset-value">
+                    <div class="tool-preset-box" id="cpPresetUnlock" onclick="unlockControlPanel()">
+                        <div class="tool-preset-value">
                             <svg width="28" height="28" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
                                 <path d="M13.5 10.5V6.75a4.5 4.5 0 119 0v3.75M3.75 21.75h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H3.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/>
                             </svg>
                         </div>
-                        <div class="qos-preset-label" style="margin-top: 8px;">Unlock</div>
-                        <div class="qos-preset-hint">Allow Control Panel</div>
+                        <div class="tool-preset-label" style="margin-top: 8px;">Unlock</div>
+                        <div class="tool-preset-hint">Allow Control Panel</div>
                     </div>
                 </div>
 
@@ -613,6 +582,15 @@
                         <path d="M13.5 10.5V6.75a4.5 4.5 0 119 0v3.75M3.75 21.75h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H3.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/>
                     </svg>
                     Unlock Control Panel
+                </button>
+                <button class="btn btn-play btn-full" id="cpOpenBtn" onclick="openWindowsControlPanel()" style="margin-top: 12px;">
+                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M6 12h12M8 18h8"/>
+                        <circle cx="9" cy="6" r="2"/>
+                        <circle cx="15" cy="12" r="2"/>
+                        <circle cx="12" cy="18" r="2"/>
+                    </svg>
+                    Open Windows Control Panel
                 </button>
             </div>
         </div>
@@ -655,7 +633,6 @@
     <script src="src/renderer/shared/ui.js"></script>
     <script src="src/renderer/shared/clock.js"></script>
     <script src="src/renderer/features/ownerSettings.js"></script>
-    <script src="src/renderer/features/qos.js"></script>
     <script src="src/renderer/features/controlPanel.js"></script>
     <script src="src/renderer/core/init.js"></script>
 </body>

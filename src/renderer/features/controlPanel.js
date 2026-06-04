@@ -9,6 +9,10 @@ function closeCpModal() {
     document.getElementById('cpModal').classList.remove('active');
 }
 
+function closeCPModal() {
+    closeCpModal();
+}
+
 async function checkCpStatus() {
     try {
         const status = await window.electronAPI.getCpStatus();
@@ -77,6 +81,31 @@ async function unlockControlPanel() {
     } catch (err) {
         console.error('Failed to unlock Control Panel:', err);
         alert('Failed to unlock Control Panel. Make sure launcher is running as admin.');
+    }
+}
+
+async function openWindowsControlPanel() {
+    const btn = $("cpOpenBtn");
+
+    try {
+        setLoadingButton(btn, true, "Opening...");
+        await window.electronAPI.openWindowsControlPanel();
+        showToast("Opening Windows Control Panel", "success");
+    } catch (err) {
+        console.error('Failed to open Windows Control Panel:', err);
+        showToast("Failed to open Windows Control Panel", "error");
+    } finally {
+        setLoadingButton(btn, false);
+    }
+}
+
+async function openLocalGroupPolicyEditor() {
+    try {
+        await window.electronAPI.openLocalGroupPolicyEditor();
+        showToast("Opening Local Group Policy Editor", "success");
+    } catch (err) {
+        console.error('Failed to open Local Group Policy Editor:', err);
+        showToast("Failed to open Local Group Policy Editor", "error");
     }
 }
 

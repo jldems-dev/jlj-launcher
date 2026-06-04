@@ -175,6 +175,31 @@ if ($val.NoControlPanel -eq 1) {
       return { locked: false };
     }
   }
+
+  openWindowsControlPanel() {
+    return this.openWindowsTool("control.exe", "Windows Control Panel");
+  }
+
+  openLocalGroupPolicyEditor() {
+    return this.openWindowsTool("gpedit.msc", "Local Group Policy Editor");
+  }
+
+  openWindowsTool(command, label) {
+    try {
+      const child = spawn(command, {
+        detached: true,
+        shell: true,
+        stdio: "ignore",
+        windowsHide: false,
+      });
+
+      child.unref();
+      return { success: true };
+    } catch (err) {
+      console.error(`[CpService] Failed to open ${label}:`, err);
+      throw err;
+    }
+  }
 }
 
 module.exports = new CpService();

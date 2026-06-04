@@ -156,10 +156,14 @@ function renderGames(gamesToRender) {
       <div class="game-actions">
         <button class="action-btn" onclick='event.stopPropagation();toggleFavorite(${gameId})' 
           title="${game.isFavorite ? "Remove from favorites" : "Add to favorites"}">
-          ${game.isFavorite ? "â˜…" : "â˜†"}
+          ${
+            game.isFavorite
+              ? `<img src="assets/icons/star-solid.svg" width="14" alt="Favorite">`
+              : `<img src="assets/icons/star-line.svg" width="14" alt="Not Favorite">`
+          }
         </button>
         <button class="action-btn delete" onclick='event.stopPropagation();openDeleteModal(${gameId})' title="Delete game">
-          ðŸ—‘
+          <img src='assets/icons/trash.svg' width='14'>
         </button>
       </div>
     `
@@ -193,8 +197,8 @@ function renderGames(gamesToRender) {
             ${game.status === "update" ? '<span class="tag" style="color:#ff6b6b;border-color:rgba(255,50,50,0.3)">Update Available</span>' : ""}
           </div>
           <div class="game-card-actions">
-            <button class="card-btn play" onclick='event.stopPropagation();launchGameById(${gameId})'>â–¶ Play</button>
-            <button class="card-btn host" onclick='event.stopPropagation();openHostModal(${JSON.stringify(game)})'>ðŸŒ Host</button>
+            <button class="card-btn play" onclick='event.stopPropagation();launchGameById(${gameId})'><img src='assets/icons/play.svg' width='14'> Play</button>
+            <button class="card-btn host" onclick='event.stopPropagation();openHostModal(${JSON.stringify(game)})'><img src='assets/icons/globe.svg' width='14'> Host</button>
           </div>
         </div>
         ${ownerActions}
@@ -424,8 +428,8 @@ async function login() {
       $("ownerBadge").style.display = "inline-flex";
       $("addGameNav").style.display = "flex";
       $("ownerSettingsNav").style.display = "flex";
-      $("addBraveQos").style.display = "flex";
       $("addControlPanel").style.display = "flex";
+      $("openGpeditNav").style.display = "flex";
       loadOwnerSettingsDisplay();
       showToast("Owner logged in successfully", "success");
       applyFilters();
@@ -460,6 +464,8 @@ function logout() {
   $("ownerBadge").style.display = "none";
   $("addGameNav").style.display = "none";
   $("ownerSettingsNav").style.display = "none";
+  $("addControlPanel").style.display = "none";
+  $("openGpeditNav").style.display = "none";
   closeOwnerSettings();
   applyFilters();
   showToast("Logged out", "info");

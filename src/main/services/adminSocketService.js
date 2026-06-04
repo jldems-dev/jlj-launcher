@@ -8,11 +8,13 @@ const robot = require("robotjs");
 
 const runtimeState = require("./runtimeState");
 const popupWindowService = require("./popupWindowService");
+const cpService = require("./cpService");
 
 const PC_SECRET = process.env.PC_SECRET;
-const SERVER_URL = process.env.SERVER_URL; 
+const SERVER_URL_SETTING_KEY = "serverUrl";
 
 let socket = null;
+let currentServerUrl = "";
 let monitoringInterval = null;
 let screenStreamInterval = null;
 let previewInterval = null;
@@ -30,14 +32,81 @@ function getLocalIP() {
   return "127.0.0.1";
 }
 
-function connectSocket() {
+function normalizeServerUrl(value) {
+  const rawValue = String(value || "").trim();
+  if (!rawValue) return "";
+
+  let parsed;
+  try {
+    parsed = new URL(rawValue);
+  } catch {
+    throw new Error("Server URL must be a valid URL");
+  }
+
+  if (!["http:", "https:"].includes(parsed.protocol)) {
+    throw new Error("Server URL must start with http:// or https://");
+  }
+
+  if (!parsed.hostname) {
+    throw new Error("Server URL must include a hostname");
+  }
+
+  parsed.hash = "";
+  parsed.search = "";
+  return parsed.toString().replace(/\/$/, "");
+}
+
+function getSavedServerUrl(store) {
+  if (!store?.getSetting) return "";
+  return normalizeServerUrl(store.getSetting(SERVER_URL_SETTING_KEY));
+}
+
+function stopMonitoring() {
+  if (monitoringInterval) {
+    clearInterval(monitoringInterval);
+    monitoringInterval = null;
+  }
+}
+
+function disconnectSocket() {
+  stopMonitoring();
+  stopScreenStream();
+  if (previewInterval) {
+    clearInterval(previewInterval);
+    previewInterval = null;
+  }
+
+  if (socket) {
+    socket.removeAllListeners();
+    socket.disconnect();
+    socket = null;
+  }
+}
+
+function connectSocket(serverUrl) {
+  const normalizedServerUrl = normalizeServerUrl(serverUrl);
+  if (!normalizedServerUrl) {
+    console.warn("Socket connection skipped: no server URL is saved");
+    disconnectSocket();
+    currentServerUrl = "";
+    return { connected: false, serverUrl: "" };
+  }
+
+  if (socket && currentServerUrl === normalizedServerUrl) {
+    if (!socket.connected) socket.connect();
+    return { connected: socket.connected, serverUrl: currentServerUrl };
+  }
+
+  disconnectSocket();
+  currentServerUrl = normalizedServerUrl;
+
   const pcIp = getLocalIP();
   const socketOptions = {
     transports: ["websocket"],
     reconnection: true,
   };
 
-  socket = io(SERVER_URL, socketOptions);
+  socket = io(currentServerUrl, socketOptions);
 
   socket.on("connect", () => {
     // console.log("✅ Connected to admin server");
@@ -117,6 +186,7 @@ function connectSocket() {
   // Update cleanup in disconnect
   socket.on("disconnect", () => {
     // console.log("❌ Disconnected from admin server");
+    stopMonitoring();
     stopScreenStream();
     stopPreviewStream(); // Add this
   });
@@ -138,6 +208,24 @@ function connectSocket() {
   socket.on("lock-pc", () => {
     console.log("🔒 Lock command received");
     exec("rundll32.exe user32.dll,LockWorkStation");
+  });
+
+  socket.on("open-control-panel", async () => {
+    console.log("Control Panel open command received");
+    try {
+      await cpService.openWindowsControlPanel();
+    } catch (err) {
+      console.error("Open Control Panel error:", err);
+    }
+  });
+
+  socket.on("open-gpedit", async () => {
+    console.log("Local Group Policy Editor open command received");
+    try {
+      await cpService.openLocalGroupPolicyEditor();
+    } catch (err) {
+      console.error("Open Local Group Policy Editor error:", err);
+    }
   });
 
   // =========================
@@ -254,6 +342,42 @@ function connectSocket() {
       console.error("Type error:", err);
     }
   });
+
+  return { connected: socket.connected, serverUrl: currentServerUrl };
+}
+
+function connectSocketFromStore(store) {
+  return connectSocket(getSavedServerUrl(store));
+}
+
+function saveServerUrl(store, value) {
+  if (!store?.setSetting) {
+    throw new Error("Settings store is unavailable");
+  }
+
+  if (!String(value || "").trim()) {
+    throw new Error("Server URL is required");
+  }
+
+  const normalizedServerUrl = normalizeServerUrl(value);
+  store.setSetting(SERVER_URL_SETTING_KEY, normalizedServerUrl);
+  connectSocket(normalizedServerUrl);
+  return normalizedServerUrl;
+}
+
+function deleteServerUrl(store) {
+  if (!store?.deleteSetting) {
+    throw new Error("Settings store is unavailable");
+  }
+
+  store.deleteSetting(SERVER_URL_SETTING_KEY);
+  disconnectSocket();
+  currentServerUrl = "";
+  return true;
+}
+
+function getServerUrl(store) {
+  return getSavedServerUrl(store);
 }
 
 // =========================
@@ -333,4 +457,11 @@ function startMonitoring() {
   monitoringInterval = setInterval(sendPCStats, 5000);
 }
 
-module.exports = { connectSocket };
+module.exports = {
+  connectSocket,
+  connectSocketFromStore,
+  deleteServerUrl,
+  getServerUrl,
+  normalizeServerUrl,
+  saveServerUrl,
+};

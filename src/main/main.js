@@ -6,7 +6,6 @@ const { createGameStore } = require("./storage/gameStore");
 
 const detectionService = require("./services/gameDetectionService");
 const processService = require("./services/processService");
-const qosService = require("./services/qosService");
 const cpService = require("./services/cpService");
 const popupWindowService = require("./services/popupWindowService");
 const { createGameTrackingService } = require("./services/gameTrackingService");
@@ -14,7 +13,7 @@ const { createGameLaunchService } = require("./services/gameLaunchService");
 const { createHostService } = require("./services/hostService");
 const { createGameUpdateService } = require("./services/gameUpdateService");
 const { registerIpcHandlers } = require("./ipc/registerIpcHandlers");   
-const { connectSocket } = require("./services/adminSocketService");
+const adminSocketService = require("./services/adminSocketService");
 const { autoUpdater } = require("electron-updater");
 
 
@@ -25,7 +24,6 @@ function bootstrap() {
   const getMainWindow = () => mainWindow;
 
   const store = createGameStore(app); 
-  qosService.setStore(store);
 
   function focusWindow(win) {
     if (!win || win.isDestroyed()) return false;
@@ -118,9 +116,9 @@ function bootstrap() {
     hostService,
     updateService,
     getMainWindow,
-    qosService,
     cpService,
     popupWindowService,
+    adminSocketService,
   });
 
   // =========================
@@ -141,10 +139,8 @@ function bootstrap() {
     splash.loadFile(path.join(__dirname, "../renderer/splash.html")); 
     try {
       await store.init();
-      // 2. RESTORE QOS WHILE SPLASH IS VISIBLE
-      await qosService.restoreThrottle();
     } catch (err) {
-      console.error("Failed to restore QoS:", err);
+      console.error("Failed to initialize store:", err);
     }
     // 3. CREATE MAIN WINDOW HIDDEN
     mainWindow = createWindow({
@@ -156,7 +152,7 @@ function bootstrap() {
         // 5. BACKGROUND BOOTSTRAP
         setupAutoUpdates(mainWindow);
 
-        connectSocket();
+        adminSocketService.connectSocketFromStore(store);
       } catch (err) {
         console.error("Bootstrap error:", err);
       }

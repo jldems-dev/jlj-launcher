@@ -40,6 +40,7 @@ function handleGlobalKeys(e) {
     closeAddGameModal();
     closeDeleteModal();
     closeHostModal();
+    closePowerConfirmModal();
   }
   if (e.ctrlKey && e.key === "f") {
     e.preventDefault();

@@ -504,6 +504,11 @@ function createGameStore(app, rootDir = process.cwd()) {
     persist();
   }
 
+  function deleteSetting(key) {
+    db.run("DELETE FROM settings WHERE key = ?;", [key]);
+    persist();
+  }
+
   return {
     init,
     save,
@@ -522,6 +527,7 @@ function createGameStore(app, rootDir = process.cwd()) {
     setLatestVersion,
     getSetting,
     setSetting,
+    deleteSetting,
     verifyOwner,
     changePassword,
     getGcashNumber,
