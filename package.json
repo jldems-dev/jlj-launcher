@@ -24,7 +24,10 @@
       "output": "dist"
     },
     "files": [
-      "**/*"
+      "**/*",
+      "!database/*.db",
+      "!dist/**",
+      "!.git/**"
     ],
     "win": {
       "target": "nsis",

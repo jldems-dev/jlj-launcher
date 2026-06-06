@@ -1,24 +1,53 @@
 require("dotenv").config();
 const io = require("socket.io-client");
-const si = require("systeminformation");
 const os = require("os");
 const { exec } = require("child_process");
-const screenshot = require("screenshot-desktop");
-const robot = require("robotjs");
 
 const runtimeState = require("./runtimeState");
 const popupWindowService = require("./popupWindowService");
 const cpService = require("./cpService");
 
 const PC_SECRET = process.env.PC_SECRET;
-const SERVER_URL_SETTING_KEY = "serverUrl";
+const SERVER_URL_SETTING_KEY = "https://jljgaminghouse.store/";
+const PC_ID = os.hostname();
+const MONITORING_INTERVAL_MS = 15000;
+const STORAGE_REFRESH_MS = 60000;
+const SCREEN_STREAM_FPS = 8;
+const SCREEN_STREAM_QUALITY = 45;
 
 let socket = null;
 let currentServerUrl = "";
 let monitoringInterval = null;
 let screenStreamInterval = null;
 let previewInterval = null;
-const SCREEN_STREAM_FPS = 15;
+let cachedStorage = [];
+let cachedStorageAt = 0;
+let screenCaptureRunning = false;
+let previewCaptureRunning = false;
+let cachedScreenSize = null;
+let screenshotModule = null;
+let robotModule = null;
+let systemInformationModule = null;
+
+function getScreenshot() {
+  if (!screenshotModule) screenshotModule = require("screenshot-desktop");
+  return screenshotModule;
+}
+
+function getRobot() {
+  if (!robotModule) robotModule = require("robotjs");
+  return robotModule;
+}
+
+function getSystemInformation() {
+  if (!systemInformationModule) systemInformationModule = require("systeminformation");
+  return systemInformationModule;
+}
+
+function getScreenSize() {
+  if (!cachedScreenSize) cachedScreenSize = getRobot().getScreenSize();
+  return cachedScreenSize;
+}
 
 function getLocalIP() {
   const interfaces = os.networkInterfaces();
@@ -114,12 +143,12 @@ function connectSocket(serverUrl) {
     // Register as PC client
     socket.emit("register-client", {
       type: "pc",
-      pcId: os.hostname(),
+      pcId: PC_ID,
       pcIp: pcIp,
     });
 
     socket.emit("client-connected", {
-      pcId: os.hostname(),
+      pcId: PC_ID,
       online: true,
     });
 
@@ -148,15 +177,16 @@ function connectSocket(serverUrl) {
   });
 
   async function capturePreview(quality = 30) {
-    if (!socket?.connected) return;
+    if (!socket?.connected || previewCaptureRunning) return;
+    previewCaptureRunning = true;
 
     try {
-      const imgBuffer = await screenshot({ format: "jpeg", quality });
+      const imgBuffer = await getScreenshot()({ format: "jpeg", quality });
       const base64Image = imgBuffer.toString("base64");
-      const screenSize = robot.getScreenSize();
+      const screenSize = getScreenSize();
 
       socket.emit("preview-frame", {
-        pcId: os.hostname(),
+        pcId: PC_ID,
         image: `data:image/jpeg;base64,${base64Image}`,
         width: screenSize.width,
         height: screenSize.height,
@@ -164,6 +194,8 @@ function connectSocket(serverUrl) {
       });
     } catch (err) {
       console.error("Preview capture error:", err);
+    } finally {
+      previewCaptureRunning = false;
     }
   }
 
@@ -172,7 +204,8 @@ function connectSocket(serverUrl) {
 
     capturePreview(quality);
 
-    const intervalMs = Math.floor(1000 / fps);
+    const safeFps = Math.max(1, Math.min(Number(fps) || 5, 10));
+    const intervalMs = Math.floor(1000 / safeFps);
     previewInterval = setInterval(() => capturePreview(quality), intervalMs);
   }
 
@@ -246,10 +279,10 @@ function connectSocket(serverUrl) {
   socket.on("remote-mouse-move", (data) => {
     try {
       const { x, y, screenWidth, screenHeight } = data;
-      const actualScreen = robot.getScreenSize();
+      const actualScreen = getScreenSize();
       const scaledX = Math.round((x / screenWidth) * actualScreen.width);
       const scaledY = Math.round((y / screenHeight) * actualScreen.height);
-      robot.moveMouse(scaledX, scaledY);
+      getRobot().moveMouse(scaledX, scaledY);
     } catch (err) {
       console.error("Mouse move error:", err);
     }
@@ -258,7 +291,7 @@ function connectSocket(serverUrl) {
   socket.on("remote-mouse-click", (data) => {
     try {
       const { button, double } = data;
-      robot.mouseClick(button || "left", !!double);
+      getRobot().mouseClick(button || "left", !!double);
     } catch (err) {
       console.error("Mouse click error:", err);
     }
@@ -266,7 +299,7 @@ function connectSocket(serverUrl) {
 
   socket.on("remote-mouse-down", (data) => {
     try {
-      robot.mouseToggle("down", data?.button || "left");
+      getRobot().mouseToggle("down", data?.button || "left");
     } catch (err) {
       console.error("Mouse down error:", err);
     }
@@ -274,7 +307,7 @@ function connectSocket(serverUrl) {
 
   socket.on("remote-mouse-up", (data) => {
     try {
-      robot.mouseToggle("up", data?.button || "left");
+      getRobot().mouseToggle("up", data?.button || "left");
     } catch (err) {
       console.error("Mouse up error:", err);
     }
@@ -285,7 +318,7 @@ function connectSocket(serverUrl) {
       const { deltaY } = data;
       const scrollAmount = Math.round(deltaY / 100);
       if (scrollAmount !== 0) {
-        robot.scrollMouse(
+        getRobot().scrollMouse(
           Math.abs(scrollAmount),
           scrollAmount > 0 ? "up" : "down",
         );
@@ -326,9 +359,9 @@ function connectSocket(serverUrl) {
       const robotKey = keyMap[key] || key.toLowerCase();
 
       if (modifiers.length > 0) {
-        robot.keyTap(robotKey, modifiers);
+        getRobot().keyTap(robotKey, modifiers);
       } else {
-        robot.keyTap(robotKey);
+        getRobot().keyTap(robotKey);
       }
     } catch (err) {
       console.error("Key press error:", err);
@@ -337,7 +370,7 @@ function connectSocket(serverUrl) {
 
   socket.on("remote-type", (data) => {
     try {
-      robot.typeString(data?.text || "");
+      getRobot().typeString(data?.text || "");
     } catch (err) {
       console.error("Type error:", err);
     }
@@ -385,15 +418,16 @@ function getServerUrl(store) {
 // =========================
 
 async function captureAndSendScreen() {
-  if (!socket?.connected) return;
+  if (!socket?.connected || screenCaptureRunning) return;
+  screenCaptureRunning = true;
 
   try {
-    const imgBuffer = await screenshot({ format: "jpeg", quality: 60 });
+    const imgBuffer = await getScreenshot()({ format: "jpeg", quality: SCREEN_STREAM_QUALITY });
     const base64Image = imgBuffer.toString("base64");
-    const screenSize = robot.getScreenSize();
+    const screenSize = getScreenSize();
 
     socket.emit("screen-frame", {
-      pcId: os.hostname(),
+      pcId: PC_ID,
       image: `data:image/jpeg;base64,${base64Image}`,
       width: screenSize.width,
       height: screenSize.height,
@@ -401,6 +435,8 @@ async function captureAndSendScreen() {
     });
   } catch (err) {
     console.error("Screen capture error:", err);
+  } finally {
+    screenCaptureRunning = false;
   }
 }
 
@@ -428,21 +464,25 @@ async function sendPCStats() {
   if (!socket?.connected) return;
 
   try {
-    const cpu = await si.currentLoad();
-    const mem = await si.mem();
-    const disks = await si.fsSize();
-
-    socket.emit("pc-status", {
-      pcId: os.hostname(),
-      currentGame: runtimeState.currentGame,
-      cpuUsage: cpu.currentLoad.toFixed(1),
-      ramUsage: ((mem.active / mem.total) * 100).toFixed(1),
-      storage: disks.map((disk) => ({
+    const si = getSystemInformation();
+    const [cpu, mem] = await Promise.all([si.currentLoad(), si.mem()]);
+    if (Date.now() - cachedStorageAt > STORAGE_REFRESH_MS) {
+      const disks = await si.fsSize();
+      cachedStorage = disks.map((disk) => ({
         drive: disk.mount,
         totalGB: (disk.size / 1024 / 1024 / 1024).toFixed(1),
         usedGB: (disk.used / 1024 / 1024 / 1024).toFixed(1),
         freeGB: ((disk.size - disk.used) / 1024 / 1024 / 1024).toFixed(1),
-      })),
+      }));
+      cachedStorageAt = Date.now();
+    }
+
+    socket.emit("pc-status", {
+      pcId: PC_ID,
+      currentGame: runtimeState.currentGame,
+      cpuUsage: cpu.currentLoad.toFixed(1),
+      ramUsage: ((mem.active / mem.total) * 100).toFixed(1),
+      storage: cachedStorage,
       uptime: os.uptime(),
       online: true,
       timestamp: Date.now(),
@@ -454,7 +494,8 @@ async function sendPCStats() {
 
 function startMonitoring() {
   if (monitoringInterval) clearInterval(monitoringInterval);
-  monitoringInterval = setInterval(sendPCStats, 5000);
+  sendPCStats();
+  monitoringInterval = setInterval(sendPCStats, MONITORING_INTERVAL_MS);
 }
 
 module.exports = {

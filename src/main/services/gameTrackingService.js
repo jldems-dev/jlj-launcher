@@ -1,8 +1,43 @@
 const { formatHours } = require('./timeFormatter');
-const { exec, spawn } = require("child_process");
+const { spawn } = require("child_process");
+
+const PROCESS_MONITOR_INTERVAL_MS = 5000;
 
 function createGameTrackingService({ store, getMainWindow, processService }) {
   const runningGames = new Map();
+  let processMonitorInterval = null;
+  let processMonitorRunning = false;
+
+  function ensureProcessMonitor() {
+    if (processMonitorInterval) return;
+    processMonitorInterval = setInterval(checkRunningGames, PROCESS_MONITOR_INTERVAL_MS);
+  }
+
+  function stopProcessMonitorIfIdle() {
+    if (runningGames.size > 0 || !processMonitorInterval) return;
+    clearInterval(processMonitorInterval);
+    processMonitorInterval = null;
+  }
+
+  async function checkRunningGames() {
+    if (processMonitorRunning || runningGames.size === 0) return;
+    processMonitorRunning = true;
+
+    try {
+      const processNames = [...new Set([...runningGames.values()].map((game) => game.processName))];
+      const runningProcessNames = await processService.getRunningProcessNames(processNames);
+
+      for (const [gameId, gameData] of [...runningGames.entries()]) {
+        if (runningProcessNames.has(gameData.processName.toLowerCase())) continue;
+
+        const elapsedMinutes = Math.floor((Date.now() - gameData.startTime) / 60000);
+        stopGameTracking(gameId, elapsedMinutes);
+      }
+    } finally {
+      processMonitorRunning = false;
+      stopProcessMonitorIfIdle();
+    }
+  }
 
   function startProcessMonitor(gameId, processName, exePath) {
     const startTime = Date.now();
@@ -11,24 +46,9 @@ function createGameTrackingService({ store, getMainWindow, processService }) {
       processName,
       exePath,
       startTime,
-      checkInterval: null,
     });
 
-    const checkInterval = setInterval(async () => {
-      const running = await processService.isProcessRunning(processName);
-      if (!running) {
-        clearInterval(checkInterval);
-        const gameData = runningGames.get(gameId);
-        if (gameData) {
-          const elapsedMinutes = Math.floor(
-            (Date.now() - gameData.startTime) / 60000,
-          );
-          stopGameTracking(gameId, elapsedMinutes);
-        }
-      }
-    }, 3000);
-
-    runningGames.get(gameId).checkInterval = checkInterval;
+    ensureProcessMonitor();
 
     const mainWindow = getMainWindow();
     if (mainWindow && !mainWindow.isDestroyed()) {
@@ -61,10 +81,8 @@ function createGameTrackingService({ store, getMainWindow, processService }) {
     const gameData = runningGames.get(gameId);
     if (!gameData) return;
 
-    if (gameData.checkInterval) {
-      clearInterval(gameData.checkInterval);
-    }
     runningGames.delete(gameId);
+    stopProcessMonitorIfIdle();
 
     const game = store.findGame(gameId);
     if (!game) return;
@@ -99,10 +117,8 @@ function createGameTrackingService({ store, getMainWindow, processService }) {
   }
 
   function stopAll() {
-    runningGames.forEach((gameData, gameId) => {
-      runningGames.forEach((gameData, gameId) => {
-        killGameProcess(gameId); // Added
-      });
+    [...runningGames.entries()].forEach(([gameId, gameData]) => {
+      killGameProcess(gameId); // Added
       const elapsedMinutes = Math.floor(
         (Date.now() - gameData.startTime) / 60000,
       );

@@ -92,12 +92,16 @@ function normalizePcSpec(pcSpec) {
 
 function createGameStore(app, rootDir = process.cwd()) {
   let dbPath;
+  let legacyDbPath;
   let db;
   let data = createDefaults();
 
   async function init() {
-    dbPath = path.join(rootDir, "database", "launcher.db");
+    dbPath = path.join(app.getPath("userData"), "database", "launcher.db");
+    legacyDbPath = path.join(rootDir, "database", "launcher.db");
     fs.mkdirSync(path.dirname(dbPath), { recursive: true });
+
+    migrateLegacyDatabase();
 
     const SQL = await initSqlJs({
       locateFile: (file) => path.join(path.dirname(require.resolve("sql.js")), file),
@@ -114,6 +118,12 @@ function createGameStore(app, rootDir = process.cwd()) {
     ensureLeft4Dead2Maps();
     loadData();
     persist();
+  }
+
+  function migrateLegacyDatabase() {
+    if (fs.existsSync(dbPath) || !fs.existsSync(legacyDbPath)) return;
+
+    fs.copyFileSync(legacyDbPath, dbPath, fs.constants.COPYFILE_EXCL);
   }
 
   function createSchema() {
@@ -310,6 +320,7 @@ function createGameStore(app, rootDir = process.cwd()) {
   function getStorageInfo() {
     return {
       dbPath,
+      legacyDbPath,
       gameCount: data.games.length,
     };
   }

@@ -20,7 +20,7 @@ function createBrowserWindowOptions(options = {}) {
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: false,
-      backgroundThrottling: false,
+      backgroundThrottling: true,
       preload: path.join(root, "src", "preload", "electronApi.js"),
     },
   };

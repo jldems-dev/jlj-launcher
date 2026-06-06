@@ -265,7 +265,7 @@ async function launchGameById(gameId) {
       if (game.status === "update") {
         await window.electronAPI.updateGame(game.id, {
           status: "installed",
-          version: game.setLatestVersion,
+          version: game.latestVersion,
         });
       }
     }

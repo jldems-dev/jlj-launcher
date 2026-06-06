@@ -23,6 +23,32 @@ async function findProcessByNames(names) {
     });
 }
 
+async function getRunningProcessNames(names = []) {
+    const wantedNames = new Set(names.map((name) => String(name).toLowerCase()));
+    if (wantedNames.size === 0) return new Set();
+
+    return new Promise((resolve) => {
+        const cmd = spawn('tasklist', ['/FO', 'CSV', '/NH']);
+        let output = '';
+
+        cmd.stdout.on('data', (data) => { output += data.toString(); });
+        cmd.on('close', () => {
+            const running = new Set();
+            const lines = output.split('\n').filter(l => l.trim());
+
+            for (const line of lines) {
+                const parts = line.split('","').map(p => p.replace(/^"|"$/g, ''));
+                const processName = parts[0];
+                const normalizedName = processName.toLowerCase();
+                if (wantedNames.has(normalizedName)) running.add(normalizedName);
+            }
+
+            resolve(running);
+        });
+        cmd.on('error', () => resolve(new Set()));
+    });
+}
+
 function isProcessRunning(processName) {
     return new Promise((resolve) => {
         const cmd = spawn('tasklist', ['/FI', `IMAGENAME eq ${processName}`, '/NH']);
@@ -46,6 +72,7 @@ async function isGameProcessRunning(launchMethod) {
 
 module.exports = {
     findProcessByNames,
+    getRunningProcessNames,
     isProcessRunning,
     isGameProcessRunning
 };
