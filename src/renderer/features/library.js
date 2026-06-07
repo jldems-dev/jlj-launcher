@@ -162,6 +162,12 @@ function renderGames(gamesToRender) {
               : `<img src="assets/icons/star-line.svg" width="14" alt="Not Favorite">`
           }
         </button>
+        <button class="action-btn" onclick='event.stopPropagation();openEditGameModal(${gameId})' title="Edit game">
+          <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+            <path d="M12 20h9"/>
+            <path d="M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4z"/>
+          </svg>
+        </button>
         <button class="action-btn delete" onclick='event.stopPropagation();openDeleteModal(${gameId})' title="Delete game">
           <img src='assets/icons/trash.svg' width='14'>
         </button>
@@ -474,26 +480,78 @@ function logout() {
 // ============================================================
 // GAME CRUD
 // ============================================================
+function updateAppIdVisibility() {
+  const launchMethod = $("gameLaunchMethod")?.value;
+  const needsAppId = launchMethod === "steam" || launchMethod === "epic";
+  if ($("appIdGroup")) {
+    $("appIdGroup").style.display = needsAppId ? "block" : "none";
+  }
+}
+
+function setGameModalMode(isEditing) {
+  if ($("gameModalTitle")) {
+    $("gameModalTitle").textContent = isEditing ? "Edit Game" : "Add New Game";
+  }
+  if ($("gameModalSubmitText")) {
+    $("gameModalSubmitText").textContent = isEditing ? "Update Game" : "Add Game";
+  }
+  if ($("gameCoverHint")) {
+    $("gameCoverHint").textContent = isEditing
+      ? "Leave blank to keep the current cover image"
+      : "Image will be saved to the game's directory";
+  }
+}
+
+function resetGameModal() {
+  State.gameToEdit = null;
+  setGameModalMode(false);
+  $("gameTitle").value = "";
+  $("gameGenre").value = "";
+  $("gameCoverUpload").value = "";
+  $("gameExeManual").value = "";
+  $("gameAppId").value = "";
+  $("gameLaunchMethod").value = "direct";
+  $("gameHostSetup").value = "no";
+  updateAppIdVisibility();
+}
+
 function openAddGameModal() {
   if (!State.isOwnerLoggedIn) {
     showToast("Owner login required", "error");
     return;
   }
+  resetGameModal();
+  $("addGameModal")?.classList.add("active");
+}
+
+function openEditGameModal(gameId) {
+  if (!State.isOwnerLoggedIn) {
+    showToast("Owner login required", "error");
+    return;
+  }
+
+  const game = findGameById(gameId);
+  if (!game) {
+    showToast("Game not found", "error");
+    return;
+  }
+
+  State.gameToEdit = game.id;
+  setGameModalMode(true);
+  $("gameTitle").value = game.title || "";
+  $("gameGenre").value = game.genre || "";
+  $("gameCoverUpload").value = "";
+  $("gameExeManual").value = game.exePath || "";
+  $("gameLaunchMethod").value = game.launchMethod || "direct";
+  $("gameHostSetup").value = game.HostSetup || "no";
+  $("gameAppId").value = game.appId || "";
+  updateAppIdVisibility();
   $("addGameModal")?.classList.add("active");
 }
 
 function closeAddGameModal() {
   $("addGameModal")?.classList.remove("active");
-  $("gameTitle").value = "";
-  $("gameGenre").value = "";
-  $("gameCoverUpload").value = ""; // Changed from gameCover to gameCoverUpload
-  $("gameExeManual").value = "";
-
-  // Also reset app ID and launch method if needed
-  $("gameAppId").value = "";
-  $("gameLaunchMethod").value = "direct";
-  $("gameHostSetup").value = "no";
-  $("appIdGroup").style.display = "none";
+  resetGameModal();
 }
 
 async function addGame() {
@@ -509,13 +567,23 @@ async function addGame() {
   const hostSetup = $("gameHostSetup")?.value;
   const appId = $("gameAppId")?.value.trim();
   const coverFile = $("gameCoverUpload")?.files[0];
+  const isEditing = State.gameToEdit !== null;
+  const gameBeingEdited = isEditing
+    ? findGameById(State.gameToEdit)
+    : null;
 
+  if (isEditing && !gameBeingEdited) {
+    showToast("Game no longer exists", "error");
+    closeAddGameModal();
+    return;
+  }
   if (!title) return showToast("Please enter a game title", "info");
   if (!genre) return showToast("Please select a genre", "info");
   if (!manualPath) return showToast("Please enter an executable path", "info");
 
-  // Default fallback cover if no image uploaded
+  // Keep the existing cover during edits unless a replacement is uploaded.
   let cover =
+    gameBeingEdited?.cover ||
     "https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=400&h=600&fit=crop&q=80";
 
   // Handle cover image upload
@@ -547,45 +615,76 @@ async function addGame() {
       cover = savedPath;
     } catch (err) {
       console.error("Failed to save cover image:", err);
-      showToast("Failed to save cover image, using default", "warning");
+      showToast(
+        isEditing
+          ? "Failed to save cover image, keeping current cover"
+          : "Failed to save cover image, using default",
+        "warning",
+      );
     }
   } 
 
-  const newGame = {
+  const gameData = {
     title,
     cover,
     genre,
-    hours: "0h",
-    totalMinutes: 0,
-    status: "installed",
-    lastPlayed: "Never",
-    lastPlayedTimestamp: null,
-    isFavorite: false,
     exePath: manualPath,
-    detectedExePath: "",
     launchMethod,
     HostSetup: hostSetup,
     appId,
-    version: "1.0.0",
-    latestVersion: "1.0.0",
   };
 
   try {
-    if (!window.electronAPI?.addGame) {
+    const saveGameApi = isEditing
+      ? window.electronAPI?.updateGame
+      : window.electronAPI?.addGame;
+    if (!saveGameApi) {
       throw new Error(
         "Electron API is unavailable. Restart the launcher and check preload setup.",
       );
     }
 
-    const result = await window.electronAPI.addGame(newGame);
+    let successMessage;
+    if (gameBeingEdited) {
+      const updated = await window.electronAPI.updateGame(
+        gameBeingEdited.id,
+        gameData,
+      );
+      if (!updated) {
+        throw new Error(`Game ${gameBeingEdited.id} was not found in database`);
+      }
+      successMessage = `${title} updated`;
+    } else {
+      const result = await window.electronAPI.addGame({
+        ...gameData,
+        hours: "0h",
+        totalMinutes: 0,
+        status: "installed",
+        lastPlayed: "Never",
+        lastPlayedTimestamp: null,
+        isFavorite: false,
+        detectedExePath: "",
+        version: "1.0.0",
+        latestVersion: "1.0.0",
+      });
+      successMessage = `${result.title} added to library`;
+    }
+
     State.games = await window.electronAPI.getGames();
     State.allGames = State.games;
+    if (
+      isEditing &&
+      State.currentlyPlaying &&
+      sameId(State.currentlyPlaying.id, gameBeingEdited.id)
+    ) {
+      $("playingGameName").textContent = title;
+    }
     applyFilters();
     closeAddGameModal();
-    showToast(`${result.title} added to library`, "success");
+    showToast(successMessage, "success");
   } catch (error) {
-    console.error("Failed to add game:", error);
-    showToast("Failed to add game to database", "error");
+    console.error("Failed to save game:", error);
+    showToast("Failed to save game to database", "error");
   }
 }
 

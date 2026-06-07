@@ -8,6 +8,7 @@ const State = {
   currentRows: 5,
   allGames: [],
   games: [],
+  gameToEdit: null,
   gameToDelete: null,
   currentHostGame: null,
   cachedMaps: [],

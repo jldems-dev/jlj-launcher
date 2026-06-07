@@ -248,7 +248,7 @@
     <div class="modal-overlay" id="addGameModal">
         <div class="modal">
             <div class="modal-header">
-                <h3 class="modal-title">Add New Game</h3>
+                <h3 class="modal-title" id="gameModalTitle">Add New Game</h3>
                 <button class="modal-close" onclick="closeAddGameModal()">✕</button>
             </div>
             <div class="form-group">
@@ -288,7 +288,7 @@
             <div class="form-group">
                 <label class="form-label">Cover Image</label>
                 <input type="file" class="form-input" accept="image/*" id="gameCoverUpload">
-                <small class="form-hint">Image will be saved to the game's directory</small>
+                <small class="form-hint" id="gameCoverHint">Image will be saved to the game's directory</small>
             </div>
             <div class="form-group">
                 <label class="form-label">Launch Method</label>
@@ -314,7 +314,7 @@
             </div>
             <button class="btn btn-play btn-full" id="addGameButton">
                 <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
-                Add Game
+                <span id="gameModalSubmitText">Add Game</span>
             </button>
         </div>
     </div>
