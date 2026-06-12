@@ -27,7 +27,20 @@ function updateSidebarClock() {
 }
 
 function initSidebarClock() {
+  restartSidebarClock();
+}
+
+function restartSidebarClock() {
+  if (sidebarClockInterval) clearTimeout(sidebarClockInterval);
   updateSidebarClock();
-  if (sidebarClockInterval) clearInterval(sidebarClockInterval);
-  sidebarClockInterval = setInterval(updateSidebarClock, 1000);
+
+  const scheduleNextClockUpdate = () => {
+    const delay = State.systemIdle || document.hidden ? 60000 : 1000;
+    sidebarClockInterval = setTimeout(() => {
+      updateSidebarClock();
+      scheduleNextClockUpdate();
+    }, delay);
+  };
+
+  scheduleNextClockUpdate();
 }

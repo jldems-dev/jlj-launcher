@@ -14,6 +14,7 @@ const { createHostService } = require("./services/hostService");
 const { createGameUpdateService } = require("./services/gameUpdateService");
 const { registerIpcHandlers } = require("./ipc/registerIpcHandlers");   
 const adminSocketService = require("./services/adminSocketService");
+const systemActivityService = require("./services/systemActivityService");
 const { autoUpdater } = require("electron-updater");
 
 
@@ -94,6 +95,7 @@ function bootstrap() {
     store,
     getMainWindow,
     processService,
+    systemActivityService,
   });
 
   const launchService = createGameLaunchService({
@@ -125,6 +127,13 @@ function bootstrap() {
   // APP START
   // =========================
   app.whenReady().then(async () => {
+    systemActivityService.start();
+    systemActivityService.onChange((state) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send("system-idle-state", state);
+      }
+    });
+
     app.setLoginItemSettings({
       openAtLogin: true,
     });
@@ -168,6 +177,10 @@ function bootstrap() {
 
   app.on("window-all-closed", () => {
     if (process.platform !== "darwin") app.quit();
+  });
+
+  app.on("before-quit", () => {
+    systemActivityService.stop();
   });
 
   app.on("activate", () => {

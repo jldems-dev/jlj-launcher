@@ -263,17 +263,17 @@ async function launchGameById(gameId) {
 
   try {
     if (window.electronAPI?.updateGame) {
-      await window.electronAPI.updateGame(game.id, {
+      const updates = {
         lastPlayedTimestamp: now,
         lastPlayed: "Just now",
-      });
+      };
 
       if (game.status === "update") {
-        await window.electronAPI.updateGame(game.id, {
-          status: "installed",
-          version: game.latestVersion,
-        });
+        updates.status = "installed";
+        updates.version = game.latestVersion;
       }
+
+      await window.electronAPI.updateGame(game.id, updates);
     }
     applyFilters();
   } catch (e) {
@@ -291,13 +291,26 @@ function startPlayTimer(game) {
   $("playingGameName").textContent = game.title;
   $("playingIndicator")?.classList.add("active");
 
-  State.playTimerInterval = setInterval(async () => {
+  restartPlayTimer();
+  applyFilters();
+}
+
+function restartPlayTimer() {
+  if (State.playTimerInterval) clearTimeout(State.playTimerInterval);
+  const generation = ++State.playTimerGeneration;
+  if (!State.currentlyPlaying) {
+    State.playTimerInterval = null;
+    return;
+  }
+
+  const updatePlayTimer = async () => {
     if (!State.currentlyPlaying) return;
 
+    const gameId = State.currentlyPlaying.id;
     let elapsedSeconds = 0;
     if (window.electronAPI?.getElapsedTime) {
       try {
-        elapsedSeconds = await window.electronAPI.getElapsedTime(game.id);
+        elapsedSeconds = await window.electronAPI.getElapsedTime(gameId);
       } catch (e) {
         elapsedSeconds = Math.floor(
           (Date.now() - State.currentlyPlaying.startTime) / 1000,
@@ -312,10 +325,16 @@ function startPlayTimer(game) {
     const totalMinutes =
       State.currentlyPlaying.startTotalMinutes +
       Math.floor(elapsedSeconds / 60);
+    if (generation !== State.playTimerGeneration || !State.currentlyPlaying) {
+      return;
+    }
     $("playingTime").textContent = formatPlayTime(totalMinutes);
-  }, 1000);
 
-  applyFilters();
+    const delay = State.systemIdle || document.hidden ? 15000 : 1000;
+    State.playTimerInterval = setTimeout(updatePlayTimer, delay);
+  };
+
+  updatePlayTimer();
 }
 
 async function stopPlaying() {
@@ -327,7 +346,8 @@ async function stopPlaying() {
     window.electronAPI.stopGame(gameId);
   }
 
-  clearInterval(State.playTimerInterval);
+  clearTimeout(State.playTimerInterval);
+  State.playTimerGeneration++;
   State.playTimerInterval = null;
 
   const elapsedMinutes = Math.floor(
@@ -358,7 +378,8 @@ if (window.electronAPI?.onGameStopped) {
     )
       return;
 
-    clearInterval(State.playTimerInterval);
+    clearTimeout(State.playTimerInterval);
+    State.playTimerGeneration++;
     State.playTimerInterval = null;
     State.currentlyPlaying = null;
     $("playingIndicator")?.classList.remove("active");
@@ -482,9 +503,15 @@ function logout() {
 // ============================================================
 function updateAppIdVisibility() {
   const launchMethod = $("gameLaunchMethod")?.value;
-  const needsAppId = launchMethod === "steam" || launchMethod === "epic";
-  if ($("appIdGroup")) {
-    $("appIdGroup").style.display = needsAppId ? "block" : "none";
+  const needsAppId = launchMethod === "epic";
+  const appIdGroup = $("appIdGroup");
+  const appIdInput = $("gameAppId");
+
+  if (appIdGroup) {
+    appIdGroup.style.display = needsAppId ? "block" : "none";
+  }
+  if (appIdInput) {
+    appIdInput.disabled = !needsAppId;
   }
 }
 
@@ -565,7 +592,8 @@ async function addGame() {
   const manualPath = $("gameExeManual")?.value.trim();
   const launchMethod = $("gameLaunchMethod")?.value;
   const hostSetup = $("gameHostSetup")?.value;
-  const appId = $("gameAppId")?.value.trim();
+  const appId =
+    launchMethod === "epic" ? $("gameAppId")?.value.trim() || "" : "";
   const coverFile = $("gameCoverUpload")?.files[0];
   const isEditing = State.gameToEdit !== null;
   const gameBeingEdited = isEditing

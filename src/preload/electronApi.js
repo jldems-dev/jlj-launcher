@@ -12,6 +12,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
   onUpdateProgress: (cb) =>
     ipcRenderer.on("update-progress", (_, data) => cb(data)),
   getAppVersion: () => ipcRenderer.invoke("get-app-version"),
+  getSystemIdleState: () => ipcRenderer.invoke("get-system-idle-state"),
+  onSystemIdleState: (callback) =>
+    ipcRenderer.on("system-idle-state", (_, state) => callback(state)),
 
   launchGame: (gameId, launchMethod, appId, title) =>
     ipcRenderer.send("launch-game", gameId, launchMethod, appId, title),

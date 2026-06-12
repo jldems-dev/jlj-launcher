@@ -2,6 +2,7 @@
 // INITIALIZATION
 // ============================================================
 document.addEventListener("DOMContentLoaded", () => {
+  initSystemIdleState();
   loadAppVersion();
   bindWindowControls();
   bindCrudControls();
@@ -21,12 +22,33 @@ document.addEventListener("DOMContentLoaded", () => {
   // Global key handlers
   document.addEventListener("keydown", handleGlobalKeys);
   window.addEventListener("beforeunload", handleBeforeUnload);
+  document.addEventListener("visibilitychange", () => {
+    restartSidebarClock();
+    restartPlayTimer();
+  });
 
   // Modal backdrop clicks
   $("hostModal")?.addEventListener("click", (e) => {
     if (e.target === e.currentTarget) closeHostModal();
   });
 });
+
+async function initSystemIdleState() {
+  const applyIdleState = (state) => {
+    State.systemIdle = !!state?.idle;
+    restartSidebarClock();
+    restartPlayTimer();
+  };
+
+  window.electronAPI?.onSystemIdleState?.(applyIdleState);
+
+  try {
+    const state = await window.electronAPI?.getSystemIdleState?.();
+    if (state) applyIdleState(state);
+  } catch (error) {
+    console.error("Failed to load system idle state:", error);
+  }
+}
 
 async function loadAppVersion() {
   const versionEl = $("appVersion");

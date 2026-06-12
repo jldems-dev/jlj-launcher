@@ -2,6 +2,7 @@ const { exec } = require("child_process");
 const util = require("util");
 const path = require("path");
 const { app, shell } = require('electron'); 
+const systemActivityService = require("../services/systemActivityService");
 
 const execAsync = util.promisify(exec);
 
@@ -25,6 +26,10 @@ function registerIpcHandlers({
 
   ipcMain.handle("get-app-version", () => {
     return app.getVersion();
+  });
+
+  ipcMain.handle("get-system-idle-state", () => {
+    return systemActivityService.getState();
   });
 
   ipcMain.handle("db-get-games", () => {

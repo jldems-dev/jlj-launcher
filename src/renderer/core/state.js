@@ -14,8 +14,10 @@ const State = {
   cachedMaps: [],
   currentlyPlaying: null,
   playTimerInterval: null,
+  playTimerGeneration: 0,
   updateListenerAttached: false,
   cpLocked: false,
+  systemIdle: false,
 };
 
 // ============================================================

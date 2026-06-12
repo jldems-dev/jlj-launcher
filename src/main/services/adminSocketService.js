@@ -6,12 +6,15 @@ const { exec } = require("child_process");
 const runtimeState = require("./runtimeState");
 const popupWindowService = require("./popupWindowService");
 const cpService = require("./cpService");
+const systemActivityService = require("./systemActivityService");
 
 const PC_SECRET = process.env.PC_SECRET;
 const SERVER_URL_SETTING_KEY = "https://jljgaminghouse.store/";
 const PC_ID = os.hostname();
 const MONITORING_INTERVAL_MS = 15000;
+const IDLE_MONITORING_INTERVAL_MS = 60000;
 const STORAGE_REFRESH_MS = 60000;
+const IDLE_STORAGE_REFRESH_MS = 5 * 60000;
 const SCREEN_STREAM_FPS = 8;
 const SCREEN_STREAM_QUALITY = 45;
 
@@ -92,9 +95,26 @@ function getSavedServerUrl(store) {
 
 function stopMonitoring() {
   if (monitoringInterval) {
-    clearInterval(monitoringInterval);
+    clearTimeout(monitoringInterval);
     monitoringInterval = null;
   }
+}
+
+function getMonitoringInterval() {
+  return systemActivityService.getState().idle
+    ? IDLE_MONITORING_INTERVAL_MS
+    : MONITORING_INTERVAL_MS;
+}
+
+function scheduleMonitoring() {
+  stopMonitoring();
+  if (!socket?.connected) return;
+
+  monitoringInterval = setTimeout(async () => {
+    await sendPCStats();
+    scheduleMonitoring();
+  }, getMonitoringInterval());
+  monitoringInterval.unref?.();
 }
 
 function disconnectSocket() {
@@ -104,12 +124,15 @@ function disconnectSocket() {
     clearInterval(previewInterval);
     previewInterval = null;
   }
+  systemActivityService.setBusy("remote-preview", false);
+  systemActivityService.setBusy("remote-desktop", false);
 
   if (socket) {
     socket.removeAllListeners();
     socket.disconnect();
     socket = null;
   }
+  stopMonitoring();
 }
 
 function connectSocket(serverUrl) {
@@ -201,6 +224,7 @@ function connectSocket(serverUrl) {
 
   function startPreviewStream(quality = 30, fps = 5) {
     if (previewInterval) clearInterval(previewInterval);
+    systemActivityService.setBusy("remote-preview", true);
 
     capturePreview(quality);
 
@@ -214,6 +238,7 @@ function connectSocket(serverUrl) {
       clearInterval(previewInterval);
       previewInterval = null;
     }
+    systemActivityService.setBusy("remote-preview", false);
   }
 
   // Update cleanup in disconnect
@@ -442,6 +467,7 @@ async function captureAndSendScreen() {
 
 function startScreenStream() {
   if (screenStreamInterval) clearInterval(screenStreamInterval);
+  systemActivityService.setBusy("remote-desktop", true);
 
   captureAndSendScreen();
 
@@ -454,6 +480,7 @@ function stopScreenStream() {
     clearInterval(screenStreamInterval);
     screenStreamInterval = null;
   }
+  systemActivityService.setBusy("remote-desktop", false);
 }
 
 // =========================
@@ -466,7 +493,10 @@ async function sendPCStats() {
   try {
     const si = getSystemInformation();
     const [cpu, mem] = await Promise.all([si.currentLoad(), si.mem()]);
-    if (Date.now() - cachedStorageAt > STORAGE_REFRESH_MS) {
+    const storageRefreshMs = systemActivityService.getState().idle
+      ? IDLE_STORAGE_REFRESH_MS
+      : STORAGE_REFRESH_MS;
+    if (Date.now() - cachedStorageAt > storageRefreshMs) {
       const disks = await si.fsSize();
       cachedStorage = disks.map((disk) => ({
         drive: disk.mount,
@@ -493,10 +523,13 @@ async function sendPCStats() {
 }
 
 function startMonitoring() {
-  if (monitoringInterval) clearInterval(monitoringInterval);
   sendPCStats();
-  monitoringInterval = setInterval(sendPCStats, MONITORING_INTERVAL_MS);
+  scheduleMonitoring();
 }
+
+systemActivityService.onChange(() => {
+  if (socket?.connected) scheduleMonitoring();
+});
 
 module.exports = {
   connectSocket,

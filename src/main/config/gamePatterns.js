@@ -32,9 +32,12 @@ const GAME_PATTERNS = {
     },
     steam: {
         name: 'Steam Game',
-        processNames: [],
-        launcherPrefix: 'steam://rungameid/',
-        steamExe: 'C:\\Program Files (x86)\\Steam\\steam.exe'
+        processNames: ['steam.exe'],
+        steamExe: 'C:\\Program Files (x86)\\Steam\\steam.exe',
+        silentArgs: ['-silent', '-no-cef-sandbox', '-cef-single-process'],
+        startupTimeoutMs: 60000,
+        readinessPollMs: 1000,
+        stablePollCount: 3
     },
     epic: {
         name: 'Epic Game',

@@ -3,15 +3,139 @@ const path = require('path');
 const os = require("os");
 const { shell } = require('electron');
 const { GAME_PATTERNS } = require('../config/gamePatterns');
-const { exec, spawn } = require("child_process");
+const { execFile, spawn } = require("child_process");
 const runtimeState = require("./runtimeState");
 
 function createGameLaunchService({ store, getMainWindow, detectionService, processService, trackingService }) {
-    function launchDirect(exePath, gameId) {
-        const processName = path.basename(exePath);
-        trackingService.startProcessMonitor(gameId, processName, exePath);
-        shell.openPath(exePath);
+    let steamStartupPromise = null;
+
+    function minimizeMainWindow() {
+        const mainWindow = getMainWindow();
+        if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.minimize();
+        }
     }
+
+    async function launchDirect(exePath, gameId) {
+        const processName = path.basename(exePath);
+        const error = await shell.openPath(exePath);
+        if (error) {
+            throw new Error(error);
+        }
+        trackingService.startProcessMonitor(gameId, processName, exePath);
+    }
+
+    function delay(milliseconds) {
+        return new Promise((resolve) => setTimeout(resolve, milliseconds));
+    }
+
+    function querySteamRegistry(key) {
+        return new Promise((resolve) => {
+            execFile("reg", ["query", key, "/v", "SteamExe"], (error, stdout) => {
+                if (error) {
+                    resolve(null);
+                    return;
+                }
+
+                const match = stdout.match(/SteamExe\s+REG_\w+\s+(.+)/i);
+                const steamExe = match?.[1]
+                    ?.trim()
+                    .replace(/^"|"$/g, "")
+                    .replace(/\//g, "\\");
+                resolve(steamExe && fs.existsSync(steamExe) ? steamExe : null);
+            });
+        });
+    }
+
+    async function findSteamExe() {
+        const configuredPath = GAME_PATTERNS.steam?.steamExe;
+        const candidates = [
+            configuredPath,
+            process.env["ProgramFiles(x86)"] &&
+                path.join(process.env["ProgramFiles(x86)"], "Steam", "steam.exe"),
+            process.env.ProgramFiles &&
+                path.join(process.env.ProgramFiles, "Steam", "steam.exe"),
+        ].filter(Boolean);
+
+        const installedPath = candidates.find((candidate) => fs.existsSync(candidate));
+        if (installedPath) return installedPath;
+
+        return (
+            (await querySteamRegistry("HKCU\\Software\\Valve\\Steam")) ||
+            (await querySteamRegistry("HKLM\\Software\\WOW6432Node\\Valve\\Steam"))
+        );
+    }
+
+    async function isSteamRunning() {
+        const processNames = GAME_PATTERNS.steam?.processNames || ["steam.exe"];
+
+        for (const processName of processNames) {
+            if (await processService.isProcessRunning(processName)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    async function waitForSteamReady() {
+        const steamConfig = GAME_PATTERNS.steam || {};
+        const timeoutMs = steamConfig.startupTimeoutMs || 60000;
+        const pollMs = steamConfig.readinessPollMs || 1000;
+        const stablePollCount = steamConfig.stablePollCount || 3;
+        const deadline = Date.now() + timeoutMs;
+        let stablePolls = 0;
+
+        while (Date.now() < deadline) {
+            if (await isSteamRunning()) {
+                stablePolls++;
+                if (stablePolls >= stablePollCount) return;
+            } else {
+                stablePolls = 0;
+            }
+
+            await delay(pollMs);
+        }
+
+        throw new Error("Steam did not finish starting before the timeout");
+    }
+
+    async function ensureSteamRunning() {
+        if (steamStartupPromise) return steamStartupPromise;
+        if (await isSteamRunning()) return;
+
+        steamStartupPromise = (async () => {
+            const steamExe = await findSteamExe();
+            if (!steamExe) {
+                throw new Error("Steam installation could not be found");
+            }
+
+            const steamProcess = spawn(
+                steamExe,
+                GAME_PATTERNS.steam?.silentArgs || ["-silent"],
+                {
+                    detached: true,
+                    stdio: "ignore",
+                    windowsHide: true,
+                },
+            );
+
+            await new Promise((resolve, reject) => {
+                steamProcess.once("spawn", resolve);
+                steamProcess.once("error", reject);
+            });
+            steamProcess.unref();
+
+            await waitForSteamReady();
+        })();
+
+        try {
+            await steamStartupPromise;
+        } finally {
+            steamStartupPromise = null;
+        }
+    }
+
     async function launchRoblox(gameId) {
         const exePath = await detectionService.findRobloxExe();
 
@@ -43,16 +167,22 @@ function createGameLaunchService({ store, getMainWindow, detectionService, proce
             store.save();
         }
 
-        launchDirect(exePath, gameId);
+        await launchDirect(exePath, gameId);
     }
-    function launchSteam(appId, gameId) {
-        const steamUrl = `steam://rungameid/${appId}`;
-        shell.openExternal(steamUrl);
+    async function launchSteam(game, gameId) {
+        const exePath =
+            game.exePath && fs.existsSync(game.exePath)
+                ? game.exePath
+                : game.detectedExePath && fs.existsSync(game.detectedExePath)
+                  ? game.detectedExePath
+                  : null;
 
-        showToast('Steam game launched. Timer will start when process detected.', 'info');
+        if (!exePath) {
+            throw new Error(`Could not find executable for ${game.title}`);
+        }
 
-        setTimeout(async () => {
-        }, 10000);
+        await ensureSteamRunning();
+        await launchDirect(exePath, gameId);
     }
     function launchEpic(appName, gameId) {
         const epicUrl = `com.epicgames.launcher://apps/${appName}?action=launch&silent=true`;
@@ -73,12 +203,12 @@ function createGameLaunchService({ store, getMainWindow, detectionService, proce
             game.detectedExePath = exePath;
             game.launchMethod = detectedMethod;
             store.save();
-            launchDirect(exePath, gameId);
+            await launchDirect(exePath, gameId);
         } else if (detectedMethod === 'roblox') {
             launchRoblox(gameId);
         } else {
             if (game.exePath && fs.existsSync(game.exePath)) {
-                launchDirect(game.exePath, gameId);
+                await launchDirect(game.exePath, gameId);
             } else {
                 throw new Error(`Could not find executable for ${game.title}`);
             }
@@ -97,7 +227,7 @@ function createGameLaunchService({ store, getMainWindow, detectionService, proce
             await launchRoblox(gameId);
             break;
           case "steam":
-            launchSteam(appId || game.appId, gameId);
+            await launchSteam(game, gameId);
             break;
           case "epic":
             launchEpic(appId || game.appId, gameId);
@@ -108,12 +238,12 @@ function createGameLaunchService({ store, getMainWindow, detectionService, proce
           case "direct":
           default:
             if (game.exePath && fs.existsSync(game.exePath)) {
-              launchDirect(game.exePath, gameId);
+              await launchDirect(game.exePath, gameId);
             } else if (
               game.detectedExePath &&
               fs.existsSync(game.detectedExePath)
             ) {
-              launchDirect(game.detectedExePath, gameId);
+              await launchDirect(game.detectedExePath, gameId);
             } else {
               await launchAutoDetect(game, gameId);
             }
@@ -124,6 +254,7 @@ function createGameLaunchService({ store, getMainWindow, detectionService, proce
           id: game.id,
           title: game.title,
         };
+        minimizeMainWindow();
       } catch (error) {
         console.error("Launch failed:", error);
         const mainWindow = getMainWindow();
@@ -171,6 +302,8 @@ function createGameLaunchService({ store, getMainWindow, detectionService, proce
         stdio: "ignore",
       }).unref();
 
+      minimizeMainWindow();
+
       return {
         success: true,
       };
@@ -215,6 +348,8 @@ function createGameLaunchService({ store, getMainWindow, detectionService, proce
           detached: true,
           stdio: "ignore",
         }).unref(); 
+        minimizeMainWindow();
+
         return {
           success: true,
           room: params,
@@ -234,6 +369,8 @@ function createGameLaunchService({ store, getMainWindow, detectionService, proce
         detached: true,
         stdio: "ignore",
       }).unref();
+
+      minimizeMainWindow();
 
       return {
         success: true,

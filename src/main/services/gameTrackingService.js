@@ -3,7 +3,12 @@ const { spawn } = require("child_process");
 
 const PROCESS_MONITOR_INTERVAL_MS = 5000;
 
-function createGameTrackingService({ store, getMainWindow, processService }) {
+function createGameTrackingService({
+  store,
+  getMainWindow,
+  processService,
+  systemActivityService,
+}) {
   const runningGames = new Map();
   let processMonitorInterval = null;
   let processMonitorRunning = false;
@@ -47,6 +52,7 @@ function createGameTrackingService({ store, getMainWindow, processService }) {
       exePath,
       startTime,
     });
+    systemActivityService?.setBusy(`game:${gameId}`, true);
 
     ensureProcessMonitor();
 
@@ -82,6 +88,7 @@ function createGameTrackingService({ store, getMainWindow, processService }) {
     if (!gameData) return;
 
     runningGames.delete(gameId);
+    systemActivityService?.setBusy(`game:${gameId}`, false);
     stopProcessMonitorIfIdle();
 
     const game = store.findGame(gameId);

@@ -60,7 +60,6 @@
                     Brave Browser
                 </div>
                 <div class="nav-item" onclick="openMultipleRobloxInstances()">
-                    
                     <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M8 8h8v8H8z"/>
                         <path stroke-linecap="round" stroke-linejoin="round" d="M4 4h8v8H4zM12 12h8v8h-8z"/>
@@ -295,7 +294,7 @@
                 <select class="form-select" id="gameLaunchMethod">
                     <option value="direct" selected>Direct EXE</option>
                     <option value="roblox">Roblox (Auto-detect version)</option>
-                    <option value="steam">Steam (App ID)</option>
+                    <option value="steam">Steam + Local EXE</option>
                     <option value="epic">Epic Games</option>
                     <option value="auto_detect">Auto-Detect</option>
                 </select>
@@ -309,8 +308,8 @@
             </div>
 
             <div class="form-group" id="appIdGroup" style="display: none;">
-                <label class="form-label">Steam/Epic App ID</label>
-                <input type="text" class="form-input" placeholder="e.g., 730 for CS2" id="gameAppId">
+                <label class="form-label">Epic App ID</label>
+                <input type="text" class="form-input" placeholder="Epic Games App ID" id="gameAppId">
             </div>
             <button class="btn btn-play btn-full" id="addGameButton">
                 <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
