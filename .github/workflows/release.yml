@@ -47,8 +47,6 @@ jobs:
             throw "Checkout does not match the exact commit referenced by $tag"
           }
 
-          node scripts/validate-release.js --check-project --root . --tag $tag
-
       - name: Reject an existing release for this tag
         shell: pwsh
         env:
@@ -67,6 +65,10 @@ jobs:
 
       - name: Install dependencies and rebuild native modules
         run: npm ci --no-audit --no-fund
+
+      - name: Validate package version and lockfile
+        shell: pwsh
+        run: node scripts/validate-release.js --check-project --root . --tag $env:GITHUB_REF_NAME
 
       - name: Run tests
         run: npm test
