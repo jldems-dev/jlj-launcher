@@ -6,10 +6,14 @@ const { GAME_PATTERNS } = require('../config/gamePatterns');
 const { execFile, spawn } = require("child_process");
 const runtimeState = require("./runtimeState");
 
-function createGameLaunchService({ store, getMainWindow, detectionService, processService, trackingService }) {
+function createGameLaunchService({ store, getMainWindow, detectionService, processService, trackingService, hideMainWindow }) {
     let steamStartupPromise = null;
 
     function minimizeMainWindow() {
+        if (hideMainWindow) {
+            hideMainWindow();
+            return;
+        }
         const mainWindow = getMainWindow();
         if (mainWindow && !mainWindow.isDestroyed()) {
             mainWindow.minimize();
@@ -27,6 +31,17 @@ function createGameLaunchService({ store, getMainWindow, detectionService, proce
 
     function delay(milliseconds) {
         return new Promise((resolve) => setTimeout(resolve, milliseconds));
+    }
+
+    function sendLaunchStatus(gameId, status, message) {
+        const mainWindow = getMainWindow();
+        if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send("launch-status", {
+                gameId,
+                status,
+                message,
+            });
+        }
     }
 
     function querySteamRegistry(key) {
@@ -66,8 +81,13 @@ function createGameLaunchService({ store, getMainWindow, detectionService, proce
         );
     }
 
-    async function isSteamRunning() {
+    function getSteamProcessNames() {
         const processNames = GAME_PATTERNS.steam?.processNames || ["steam.exe"];
+        return processNames.length ? processNames : ["steam.exe"];
+    }
+
+    async function isSteamRunning() {
+        const processNames = getSteamProcessNames();
 
         for (const processName of processNames) {
             if (await processService.isProcessRunning(processName)) {
@@ -78,7 +98,21 @@ function createGameLaunchService({ store, getMainWindow, detectionService, proce
         return false;
     }
 
-    async function waitForSteamReady() {
+    async function isSteamReady() {
+        if (!(await isSteamRunning())) return false;
+
+        const readinessProcessNames =
+            GAME_PATTERNS.steam?.readinessProcessNames || [];
+        if (readinessProcessNames.length === 0) return true;
+
+        const runningProcesses =
+            await processService.getRunningProcessNames(readinessProcessNames);
+        return readinessProcessNames.every((processName) =>
+            runningProcesses.has(processName.toLowerCase()),
+        );
+    }
+
+    async function waitForSteamReady(hasSteamExited) {
         const steamConfig = GAME_PATTERNS.steam || {};
         const timeoutMs = steamConfig.startupTimeoutMs || 60000;
         const pollMs = steamConfig.readinessPollMs || 1000;
@@ -87,10 +121,13 @@ function createGameLaunchService({ store, getMainWindow, detectionService, proce
         let stablePolls = 0;
 
         while (Date.now() < deadline) {
-            if (await isSteamRunning()) {
+            if (await isSteamReady()) {
                 stablePolls++;
                 if (stablePolls >= stablePollCount) return;
             } else {
+                if (hasSteamExited?.()) {
+                    throw new Error("Steam exited before it finished starting");
+                }
                 stablePolls = 0;
             }
 
@@ -100,33 +137,44 @@ function createGameLaunchService({ store, getMainWindow, detectionService, proce
         throw new Error("Steam did not finish starting before the timeout");
     }
 
-    async function ensureSteamRunning() {
-        if (steamStartupPromise) return steamStartupPromise;
-        if (await isSteamRunning()) return;
+    async function ensureSteamRunning(onWaitingForSteam) {
+        if (steamStartupPromise) {
+            onWaitingForSteam?.();
+            return steamStartupPromise;
+        }
+        const steamWasRunning = await isSteamRunning();
 
         steamStartupPromise = (async () => {
-            const steamExe = await findSteamExe();
-            if (!steamExe) {
-                throw new Error("Steam installation could not be found");
+            let steamExited = false;
+
+            if (!steamWasRunning) {
+                const steamExe = await findSteamExe();
+                if (!steamExe) {
+                    throw new Error("Steam installation could not be found");
+                }
+
+                const steamProcess = spawn(
+                    steamExe,
+                    GAME_PATTERNS.steam?.silentArgs || ["-silent"],
+                    {
+                        detached: true,
+                        stdio: "ignore",
+                        windowsHide: true,
+                    },
+                );
+                steamProcess.once("exit", () => {
+                    steamExited = true;
+                });
+
+                await new Promise((resolve, reject) => {
+                    steamProcess.once("spawn", resolve);
+                    steamProcess.once("error", reject);
+                });
+                steamProcess.unref();
             }
 
-            const steamProcess = spawn(
-                steamExe,
-                GAME_PATTERNS.steam?.silentArgs || ["-silent"],
-                {
-                    detached: true,
-                    stdio: "ignore",
-                    windowsHide: true,
-                },
-            );
-
-            await new Promise((resolve, reject) => {
-                steamProcess.once("spawn", resolve);
-                steamProcess.once("error", reject);
-            });
-            steamProcess.unref();
-
-            await waitForSteamReady();
+            onWaitingForSteam?.();
+            await waitForSteamReady(() => steamExited);
         })();
 
         try {
@@ -181,7 +229,17 @@ function createGameLaunchService({ store, getMainWindow, detectionService, proce
             throw new Error(`Could not find executable for ${game.title}`);
         }
 
-        await ensureSteamRunning();
+        const steamRunning = await isSteamRunning();
+        sendLaunchStatus(
+            gameId,
+            steamRunning ? "waiting-for-steam" : "starting-steam",
+            steamRunning ? "Waiting for Steam..." : "Starting Steam...",
+        );
+
+        await ensureSteamRunning(() => {
+            sendLaunchStatus(gameId, "waiting-for-steam", "Waiting for Steam...");
+        });
+        sendLaunchStatus(gameId, "launching-game", `Launching ${game.title}...`);
         await launchDirect(exePath, gameId);
     }
     function launchEpic(appName, gameId) {

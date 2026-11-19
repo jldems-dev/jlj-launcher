@@ -150,6 +150,7 @@ function createGameTrackingService({
     stopAll,
     isRunning,
     getElapsedTime,
+    getRunningGameCount: () => runningGames.size,
   };
 }
 

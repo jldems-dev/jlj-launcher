@@ -13,6 +13,7 @@ const State = {
   currentHostGame: null,
   cachedMaps: [],
   currentlyPlaying: null,
+  launchingGame: null,
   playTimerInterval: null,
   playTimerGeneration: 0,
   updateListenerAttached: false,

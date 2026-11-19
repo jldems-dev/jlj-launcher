@@ -12,6 +12,17 @@ contextBridge.exposeInMainWorld("electronAPI", {
   onUpdateProgress: (cb) =>
     ipcRenderer.on("update-progress", (_, data) => cb(data)),
   getAppVersion: () => ipcRenderer.invoke("get-app-version"),
+  getAppUpdateState: () => ipcRenderer.invoke("app-update:get-state"),
+  checkAppUpdate: () => ipcRenderer.invoke("app-update:check"),
+  updateApp: () => ipcRenderer.invoke("app-update:update"),
+  onAppUpdateStatus: (cb) =>
+    ipcRenderer.on("app-update-status", (_, data) => cb(data)),
+  onAppUpdateProgress: (cb) =>
+    ipcRenderer.on("app-update-progress", (_, data) => cb(data)),
+  getDiagnostics: () => ipcRenderer.invoke("diagnostics:get"),
+  exportDiagnostics: () => ipcRenderer.invoke("diagnostics:export"),
+  openLogsFolder: () => ipcRenderer.invoke("diagnostics:open-logs"),
+  reportError: (message, details) => ipcRenderer.send("renderer-log", { level: "ERROR", message, details }),
   getSystemIdleState: () => ipcRenderer.invoke("get-system-idle-state"),
   onSystemIdleState: (callback) =>
     ipcRenderer.on("system-idle-state", (_, state) => callback(state)),
@@ -33,6 +44,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.on("game-stopped", (_, data) => callback(data)),
   onLaunchFailed: (callback) =>
     ipcRenderer.on("launch-failed", (_, data) => callback(data)),
+  onLaunchStatus: (callback) =>
+    ipcRenderer.on("launch-status", (_, data) => callback(data)),
 
   removeAllListeners: (channel) => ipcRenderer.removeAllListeners(channel),
 

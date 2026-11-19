@@ -8,7 +8,7 @@ const execAsync = util.promisify(exec);
 
 function registerIpcHandlers({
   ipcMain,
-  autoUpdater,
+  appUpdateService,
   store,
   trackingService,
   launchService,
@@ -16,13 +16,25 @@ function registerIpcHandlers({
   hostService,
   updateService,
   getMainWindow,
+  hideMainWindow,
   cpService,
   popupWindowService,
   adminSocketService,
+  logger,
+  diagnosticsService,
 }) {
-  ipcMain.handle("check-for-updates", () => {
-    autoUpdater.checkForUpdates();
+  ipcMain.handle("app-update:get-state", () => appUpdateService.getState());
+  ipcMain.handle("app-update:check", () => appUpdateService.checkForUpdates());
+  ipcMain.handle("app-update:update", () => appUpdateService.updateApp());
+
+  ipcMain.handle("diagnostics:get", () => diagnosticsService.collect());
+  ipcMain.handle("diagnostics:export", () => diagnosticsService.exportReport());
+  ipcMain.handle("diagnostics:open-logs", async () => {
+    const error = await shell.openPath(logger.logDir);
+    if (error) throw new Error(error);
+    return { success: true };
   });
+  ipcMain.handle("check-for-updates", () => appUpdateService.checkForUpdates());
 
   ipcMain.handle("get-app-version", () => {
     return app.getVersion();
@@ -158,8 +170,7 @@ function registerIpcHandlers({
   });
 
   ipcMain.on("window-minimize", () => {
-    const mainWindow = getMainWindow();
-    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.minimize();
+    hideMainWindow();
   });
   ipcMain.on("window-maximize", () => {
     const mainWindow = getMainWindow();

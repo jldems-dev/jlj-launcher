@@ -21,6 +21,10 @@ function bindOwnerSettings() {
   $("clearPcSpecButton")?.addEventListener("click", clearPcSpecForm);
   $("saveServerUrlButton")?.addEventListener("click", saveServerUrlFromSettings);
   $("deleteServerUrlButton")?.addEventListener("click", deleteServerUrlFromSettings);
+  $("openLogsButton")?.addEventListener("click", async () => {
+    try { await window.electronAPI.openLogsFolder(); } catch { showToast("Could not open the logs folder", "error"); }
+  });
+  $("exportDiagnosticsButton")?.addEventListener("click", exportDiagnostics);
 
   $("ownerSettingsModal")?.addEventListener("click", (e) => {
     if (e.target === e.currentTarget) closeOwnerSettings();
@@ -205,6 +209,49 @@ async function openOwnerSettings() {
   await loadServerUrlSetting();
   await loadPcSpecsDisplay();
   $("ownerSettingsModal")?.classList.add("active");
+  loadDiagnostics();
+}
+
+async function loadDiagnostics() {
+  const panel = $("diagnosticsHealth");
+  const errors = $("diagnosticsErrors");
+  if (!panel || !window.electronAPI?.getDiagnostics) return;
+  panel.textContent = "Loading diagnostics…";
+  try {
+    const info = await window.electronAPI.getDiagnostics();
+    const rows = [
+      ["Application", `Healthy · v${info.app.version}`],
+      ["Game tracking", `${info.services.gameTracking} · ${info.services.runningGameCount ?? 0} active`],
+      ["Admin server", info.services.adminSocket],
+      ["Automatic updates", info.services.updateService],
+      ["Database", info.storage.databaseAvailable ? "Available" : "Unavailable"],
+      ["Data directory", info.storage.userDataAvailable ? "Available" : "Unavailable"],
+      ["Disk space", info.system.diskAvailableBytes == null ? "Unavailable" : `${(info.system.diskAvailableBytes / 1024 ** 3).toFixed(1)} GB available`],
+      ["Runtime", `Electron ${info.runtime.electron} · Node ${info.runtime.node}`],
+      ["Other modules", "Spotify, scheduling, announcements and backups are not part of this app"],
+    ];
+    panel.innerHTML = rows.map(([label, value]) => `<div><strong>${escapeHtml(label)}</strong><span>${escapeHtml(value)}</span></div>`).join("");
+    const recent = info.recentErrors || [];
+    errors.innerHTML = recent.length ? `<strong>Recent errors</strong>${recent.slice(0, 10).map((entry) => `<div>${escapeHtml(entry.timestamp)} · ${escapeHtml(entry.component)}: ${escapeHtml(entry.message)}</div>`).join("")}` : "No recent errors recorded.";
+  } catch {
+    panel.textContent = "Diagnostics are unavailable.";
+  }
+}
+
+async function exportDiagnostics() {
+  const button = $("exportDiagnosticsButton");
+  const status = $("diagnosticsStatus");
+  if (!button) return;
+  button.disabled = true;
+  if (status) status.textContent = "Preparing diagnostic report…";
+  try {
+    const result = await window.electronAPI.exportDiagnostics();
+    if (status) status.textContent = result.canceled ? "Export canceled." : "Diagnostic report exported successfully.";
+    if (!result.canceled) showToast("Diagnostics exported", "success");
+  } catch {
+    if (status) status.textContent = "Diagnostic export failed. Check available storage and try again.";
+    showToast("Diagnostic export failed", "error");
+  } finally { button.disabled = false; }
 }
 
 function closeOwnerSettings() {

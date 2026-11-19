@@ -1,11 +1,15 @@
 {
   "name": "jljgaminghouse",
-  "version": "1.0.20",
+  "version": "1.0.25",
   "description": "",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
     "dev": "electronmon .",
+    "test": "node --test",
+    "validate:release": "node scripts/validate-release.js --check-project --root .",
+    "postinstall": "npm run rebuild:native",
+    "rebuild:native": "electron-builder install-app-deps",
     "build": "electron-builder"
   },
   "build": {
@@ -31,7 +35,8 @@
     ],
     "win": {
       "target": "nsis",
-      "icon": "assets/images/favicon-512x512.png"
+      "icon": "assets/images/favicon-512x512.png",
+      "artifactName": "${productName}-Setup-${version}.${ext}"
     },
     "nsis": {
       "oneClick": true,
@@ -68,11 +73,11 @@
     "pend": "^1.2.0",
     "progress": "^2.0.3",
     "pump": "^3.0.4",
-    "robotjs": "^0.7.1",
+    "robotjs": "0.9.1",
     "screenshot-desktop": "^1.15.4",
     "semver": "^7.8.0",
     "socket.io-client": "^4.8.3",
-    "sql.js": "^1.14.1",
+    "sql.js": "^1.16.0",
     "sudo-prompt": "^9.2.1",
     "sumchecker": "^3.0.1",
     "systeminformation": "^5.31.6",

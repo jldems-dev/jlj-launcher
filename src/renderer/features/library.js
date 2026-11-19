@@ -142,14 +142,18 @@ function renderGames(gamesToRender) {
       const gameId = JSON.stringify(game.id);
       const isPlaying =
         State.currentlyPlaying && sameId(State.currentlyPlaying.id, game.id);
+      const isLaunching =
+        State.launchingGame && sameId(State.launchingGame.id, game.id);
 
       const statusBadge = isPlaying
         ? '<span class="status-badge status-playing">Playing</span>'
-        : game.status === "update"
-          ? '<span class="status-badge status-update">Update</span>'
-          : game.status === "installed"
-            ? '<span class="status-badge status-installed">Ready</span>'
-            : "";
+        : isLaunching
+          ? '<span class="status-badge status-launching">Starting</span>'
+          : game.status === "update"
+            ? '<span class="status-badge status-update">Update</span>'
+            : game.status === "installed"
+              ? '<span class="status-badge status-installed">Ready</span>'
+              : "";
 
       const ownerActions = State.isOwnerLoggedIn
         ? `
@@ -203,7 +207,7 @@ function renderGames(gamesToRender) {
             ${game.status === "update" ? '<span class="tag" style="color:#ff6b6b;border-color:rgba(255,50,50,0.3)">Update Available</span>' : ""}
           </div>
           <div class="game-card-actions">
-            <button class="card-btn play" onclick='event.stopPropagation();launchGameById(${gameId})'><img src='assets/icons/play.svg' width='14'> Play</button>
+            <button class="card-btn play" ${isLaunching ? "disabled" : ""} onclick='event.stopPropagation();launchGameById(${gameId})'><img src='assets/icons/play.svg' width='14'> ${isLaunching ? "Starting..." : "Play"}</button>
             <button class="card-btn host" onclick='event.stopPropagation();openHostModal(${JSON.stringify(game)})'><img src='assets/icons/globe.svg' width='14'> Host</button>
           </div>
         </div>
@@ -230,6 +234,15 @@ async function launchGameById(gameId) {
     return;
   }
 
+  if (State.launchingGame) {
+    const launchingGame = findGameById(State.launchingGame.id);
+    showToast(
+      `${launchingGame?.title || "A game"} is still starting`,
+      "info",
+    );
+    return;
+  }
+
   // Stop current game first
   if (State.currentlyPlaying) {
     await stopPlaying();
@@ -241,8 +254,17 @@ async function launchGameById(gameId) {
     return;
   }
 
-  showToast(`Launching ${game.title}...`, "success");
-  startPlayTimer(game);
+  const usesSteam = game.launchMethod === "steam";
+  showToast(
+    usesSteam ? "Checking Steam..." : `Launching ${game.title}...`,
+    "success",
+  );
+
+  if (usesSteam) {
+    showLaunchPending(game, "Checking Steam...");
+  } else {
+    startPlayTimer(game);
+  }
 
   if (window.electronAPI?.launchGame) {
     window.electronAPI.launchGame(
@@ -255,6 +277,8 @@ async function launchGameById(gameId) {
     showToast(`Would launch: ${game.exePath}`, "info");
     console.log("Launching:", game.exePath);
   }
+
+  if (usesSteam) return;
 
   // Update last played
   const now = Date.now();
@@ -281,10 +305,55 @@ async function launchGameById(gameId) {
   }
 }
 
-function startPlayTimer(game) {
+function showLaunchPending(game, message) {
+  State.launchingGame = {
+    id: game.id,
+    message,
+  };
+  $("playingGameName").textContent = game.title;
+  $("playingTime").textContent = message;
+  $("playingIndicator")?.classList.add("active", "launching");
+  applyFilters();
+}
+
+function clearLaunchPending() {
+  State.launchingGame = null;
+  $("playingIndicator")?.classList.remove("launching");
+  if (!State.currentlyPlaying) {
+    $("playingIndicator")?.classList.remove("active");
+  }
+  applyFilters();
+}
+
+async function recordGameLaunched(game) {
+  const now = Date.now();
+  game.lastPlayedTimestamp = now;
+  game.lastPlayed = "Just now";
+
+  try {
+    if (window.electronAPI?.updateGame) {
+      const updates = {
+        lastPlayedTimestamp: now,
+        lastPlayed: "Just now",
+      };
+
+      if (game.status === "update") {
+        updates.status = "installed";
+        updates.version = game.latestVersion;
+      }
+
+      await window.electronAPI.updateGame(game.id, updates);
+    }
+    applyFilters();
+  } catch (error) {
+    console.error("Failed to update last played:", error);
+  }
+}
+
+function startPlayTimer(game, startTime = Date.now()) {
   State.currentlyPlaying = {
     id: game.id,
-    startTime: Date.now(),
+    startTime,
     startTotalMinutes: game.totalMinutes || 0,
   };
 
@@ -293,6 +362,61 @@ function startPlayTimer(game) {
 
   restartPlayTimer();
   applyFilters();
+}
+
+if (window.electronAPI?.onLaunchStatus) {
+  window.electronAPI.onLaunchStatus((data) => {
+    if (
+      !State.launchingGame ||
+      !sameId(State.launchingGame.id, data.gameId)
+    ) {
+      return;
+    }
+
+    State.launchingGame.message = data.message;
+    $("playingTime").textContent = data.message;
+  });
+}
+
+if (window.electronAPI?.onGameStarted) {
+  window.electronAPI.onGameStarted((data) => {
+    if (
+      !State.launchingGame ||
+      !sameId(State.launchingGame.id, data.gameId)
+    ) {
+      return;
+    }
+
+    const game = findGameById(data.gameId);
+    clearLaunchPending();
+    if (!game) return;
+
+    startPlayTimer(game, data.startTime);
+    recordGameLaunched(game);
+    showToast(`${game.title} started`, "success");
+  });
+}
+
+if (window.electronAPI?.onLaunchFailed) {
+  window.electronAPI.onLaunchFailed((data) => {
+    if (
+      State.launchingGame &&
+      sameId(State.launchingGame.id, data.gameId)
+    ) {
+      clearLaunchPending();
+    } else if (
+      State.currentlyPlaying &&
+      sameId(State.currentlyPlaying.id, data.gameId)
+    ) {
+      clearTimeout(State.playTimerInterval);
+      State.playTimerGeneration++;
+      State.playTimerInterval = null;
+      State.currentlyPlaying = null;
+      $("playingIndicator")?.classList.remove("active");
+      applyFilters();
+    }
+    showToast(data.error || "Game launch failed", "error");
+  });
 }
 
 function restartPlayTimer() {

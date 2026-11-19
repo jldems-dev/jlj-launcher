@@ -33,9 +33,10 @@ const GAME_PATTERNS = {
     steam: {
         name: 'Steam Game',
         processNames: ['steam.exe'],
+        readinessProcessNames: ['steamwebhelper.exe'],
         steamExe: 'C:\\Program Files (x86)\\Steam\\steam.exe',
-        silentArgs: ['-silent', '-no-cef-sandbox', '-cef-single-process'],
-        startupTimeoutMs: 60000,
+        silentArgs: ['-silent'],
+        startupTimeoutMs: 90000,
         readinessPollMs: 1000,
         stablePollCount: 3
     },

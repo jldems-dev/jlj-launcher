@@ -2,6 +2,8 @@
 // INITIALIZATION
 // ============================================================
 document.addEventListener("DOMContentLoaded", () => {
+  window.addEventListener("error", (event) => window.electronAPI?.reportError?.(event.message || "Renderer error", { filename: event.filename, line: event.lineno, column: event.colno }));
+  window.addEventListener("unhandledrejection", (event) => window.electronAPI?.reportError?.("Unhandled renderer promise rejection", { reason: event.reason instanceof Error ? { name: event.reason.name, message: event.reason.message, stack: event.reason.stack } : String(event.reason) }));
   initSystemIdleState();
   loadAppVersion();
   bindWindowControls();

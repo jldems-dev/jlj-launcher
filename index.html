@@ -18,6 +18,20 @@
             <span class="brand-name">JLJGAMINGHOUSE</span>
             <span class="app-version" id="appVersion">v1.0.18</span>
         </div>
+        <div class="app-update-widget" aria-label="Launcher update controls">
+            <span class="app-update-version" id="appUpdateCurrentVersion">Current: --</span>
+            <span class="app-update-version" id="appUpdateLatestVersion">Latest: not checked</span>
+            <span class="app-update-status" id="appUpdateStatus">Click Check to look for a launcher update.</span>
+            <div class="app-update-progress hidden" id="appUpdateProgressWrap">
+                <div class="app-update-progress-track">
+                    <div class="app-update-progress-fill" id="appUpdateProgressBar"></div>
+                </div>
+                <span id="appUpdateProgressText">0%</span>
+                <span id="appUpdateSpeedText"></span>
+            </div>
+            <button class="app-update-check" id="appUpdateCheckBtn" type="button">Check</button>
+            <button class="app-update-button" id="appUpdateBtn" type="button" disabled>Update App</button>
+        </div>
         <div class="window-controls">
             <button class="win-btn btn-minimize" id="windowMinimizeButton" title="Minimize"></button>
             <button class="win-btn btn-maximize" id="windowMaximizeButton" title="Maximize"></button>
@@ -347,6 +361,18 @@
                 </div>
 
                 <div class="server-url-status" id="serverUrlStatus">No server URL saved.</div>
+
+                <div class="settings-section-header">
+                    <div class="settings-icon"><img src="assets/icons/cpu.svg" alt=""></div>
+                    <div><div class="settings-title">Diagnostics</div><div class="settings-subtitle">Application health and recent technical errors. No reports are uploaded automatically.</div></div>
+                </div>
+                <div class="diagnostics-grid" id="diagnosticsHealth" aria-live="polite">Loading diagnostics…</div>
+                <div class="settings-actions">
+                    <button class="btn" type="button" id="openLogsButton">Open Logs Folder</button>
+                    <button class="btn btn-play" type="button" id="exportDiagnosticsButton">Export Diagnostics</button>
+                </div>
+                <div class="server-url-status" id="diagnosticsStatus" aria-live="polite"></div>
+                <div class="diagnostics-errors" id="diagnosticsErrors"></div>
 
                 <div class="settings-section-header">
                     <div class="settings-icon">

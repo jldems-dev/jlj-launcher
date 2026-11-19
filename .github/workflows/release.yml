@@ -1,0 +1,128 @@
+name: Windows Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  windows-release:
+    name: Build, verify, and publish Windows release
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - name: Check out the tagged commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Validate tag, exact commit, project version, and lockfile
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $tag = $env:GITHUB_REF_NAME
+          if ($tag -notmatch '^v(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$') {
+            throw "Release tags must use stable vMAJOR.MINOR.PATCH form. Got: $tag"
+          }
+
+          $tagRef = "refs/tags/$tag"
+          $tagCommit = (git rev-parse "$tagRef^{commit}").Trim()
+          $eventCommit = (git rev-parse "$env:GITHUB_SHA^{commit}").Trim()
+          $checkoutCommit = (git rev-parse HEAD).Trim()
+          if ($tagCommit -ne $eventCommit -or $checkoutCommit -ne $eventCommit) {
+            throw "Checkout does not match the exact commit referenced by $tag"
+          }
+
+          node scripts/validate-release.js --check-project --root . --tag $tag
+
+      - name: Reject an existing release for this tag
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $ErrorActionPreference = 'Continue'
+          $tag = $env:GITHUB_REF_NAME
+          $output = gh release view $tag --repo $env:GITHUB_REPOSITORY 2>&1
+          $exitCode = $LASTEXITCODE
+          if ($exitCode -eq 0) {
+            throw "A GitHub release already exists for $tag; refusing to overwrite it."
+          }
+          if (($output -join "`n") -notmatch '(?i)release not found|not found') {
+            throw "Could not confirm that no release exists for $tag. $($output -join ' ')"
+          }
+
+      - name: Install dependencies and rebuild native modules
+        run: npm ci --no-audit --no-fund
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build the NSIS installer and upload draft assets
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $ErrorActionPreference = 'Continue'
+          $log = Join-Path $env:RUNNER_TEMP 'electron-builder.log'
+          npm.cmd run build -- --win nsis --publish always 2>&1 | Tee-Object -FilePath $log
+          $buildExitCode = $LASTEXITCODE
+          if ($buildExitCode -ne 0) {
+            exit $buildExitCode
+          }
+
+      - name: Validate installer, update metadata, and blockmap
+        shell: pwsh
+        run: node scripts/validate-release.js --root . --tag $env:GITHUB_REF_NAME --artifacts dist
+
+      - name: Verify uploaded draft assets and metadata
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $tag = $env:GITHUB_REF_NAME
+          $remoteDir = Join-Path $env:RUNNER_TEMP 'remote-release-assets'
+          New-Item -ItemType Directory -Path $remoteDir | Out-Null
+
+          gh release view $tag --repo $env:GITHUB_REPOSITORY --json tagName,isDraft,assets |
+            Set-Content -LiteralPath (Join-Path $env:RUNNER_TEMP 'release.json') -Encoding utf8
+          if ($LASTEXITCODE -ne 0) { throw "Could not read draft release assets for $tag" }
+
+          gh release download $tag --repo $env:GITHUB_REPOSITORY `
+            --pattern '*.exe' --pattern '*.exe.blockmap' --pattern latest.yml --dir $remoteDir
+          if ($LASTEXITCODE -ne 0) { throw "Could not download required assets from the draft release $tag" }
+
+          node scripts/validate-release.js --root . --tag $tag --artifacts dist `
+            --remote-release-json (Join-Path $env:RUNNER_TEMP 'release.json') `
+            --remote-assets-dir $remoteDir
+
+      - name: Publish the verified release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release edit $env:GITHUB_REF_NAME --repo $env:GITHUB_REPOSITORY --draft=false --latest
+
+      - name: Preserve release build logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-build-logs-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}\electron-builder.log
+            dist\builder-debug.yml
+          if-no-files-found: warn
+          retention-days: 14

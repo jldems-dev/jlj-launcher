@@ -64,6 +64,116 @@ body {
     gap: 10px;
 }
 
+.app-update-widget {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    margin-left: auto;
+    margin-right: 14px;
+    -webkit-app-region: no-drag;
+}
+
+.app-update-version,
+.app-update-status,
+.app-update-progress span {
+    color: var(--text-secondary);
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.app-update-status {
+    max-width: 250px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.app-update-status.is-ready {
+    color: #7ddc92;
+}
+
+.app-update-status.is-error {
+    color: #ff7a7a;
+}
+
+.app-update-progress {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.app-update-progress.hidden {
+    display: none;
+}
+
+.app-update-progress-track {
+    width: 86px;
+    height: 6px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--border);
+}
+
+.app-update-progress-fill {
+    width: 0%;
+    height: 100%;
+    background: linear-gradient(90deg, #58a6ff, #7ddc92);
+    transition: width 0.2s ease;
+}
+
+.app-update-check,
+.app-update-button {
+    height: 24px;
+    border: 1px solid var(--border-hover);
+    border-radius: 6px;
+    padding: 0 10px;
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-primary);
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.app-update-button {
+    background: #f4f4f4;
+    color: #111;
+    border-color: #f4f4f4;
+}
+
+.app-update-check:hover:not(:disabled),
+.app-update-button:hover:not(:disabled) {
+    transform: translateY(-1px);
+}
+
+.app-update-check:disabled,
+.app-update-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+    transform: none;
+}
+
+@media (max-width: 1180px) {
+    .app-update-status {
+        max-width: 160px;
+    }
+
+    .app-update-version {
+        display: none;
+    }
+}
+
+@media (max-width: 900px) {
+    .app-update-status,
+    .app-update-progress {
+        display: none;
+    }
+}
+
 .logo-mark {
     width: 28px;
     height: 28px;
@@ -848,6 +958,12 @@ body {
     animation: pulse 1.5s infinite;
 }
 
+.status-launching {
+    background: rgba(245, 185, 66, 0.9);
+    color: #17120a;
+    border-color: rgba(245, 185, 66, 0.9);
+}
+
 @keyframes glow {
 
     0%,
@@ -1373,6 +1489,14 @@ body {
 
 .playing-indicator.active {
     transform: translateY(0);
+}
+
+.playing-indicator.launching .playing-pulse {
+    background: #f5b942;
+}
+
+.playing-indicator.launching .stop-btn {
+    display: none;
 }
 
 .playing-pulse {
@@ -2097,3 +2221,23 @@ body {
     height: 18px;
     object-fit: contain;
 }
+.diagnostics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+  margin: 14px 0;
+}
+.diagnostics-grid > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.025);
+  color: #a6a6a6;
+  font-size: 12px;
+}
+.diagnostics-grid strong { color: #f0f0f0; font-size: 13px; }
+.diagnostics-errors { max-height: 180px; overflow: auto; margin: 12px 0; color: #aaa; font-size: 12px; }
+.diagnostics-errors > div { padding: 7px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.06); }

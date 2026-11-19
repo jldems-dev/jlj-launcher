@@ -12,19 +12,62 @@ const { createGameTrackingService } = require("./services/gameTrackingService");
 const { createGameLaunchService } = require("./services/gameLaunchService");
 const { createHostService } = require("./services/hostService");
 const { createGameUpdateService } = require("./services/gameUpdateService");
+const { createAppUpdateService } = require("./services/appUpdateService");
 const { registerIpcHandlers } = require("./ipc/registerIpcHandlers");   
 const adminSocketService = require("./services/adminSocketService");
 const systemActivityService = require("./services/systemActivityService");
 const { autoUpdater } = require("electron-updater");
+const { createLoggingService } = require("./services/loggingService");
+const { createDiagnosticsService } = require("./services/diagnosticsService");
+const { createTrayService } = require("./services/trayService");
 
 
 function bootstrap() {
   let mainWindow;
   let splash;
+  let appUpdateService;
+  let trayService;
 
   const getMainWindow = () => mainWindow;
 
-  const store = createGameStore(app); 
+  const logger = createLoggingService(app);
+  for (const [method, level] of [["debug", "DEBUG"], ["log", "INFO"], ["info", "INFO"], ["warn", "WARN"], ["error", "ERROR"]]) {
+    const original = console[method].bind(console);
+    console[method] = (...args) => {
+      original(...args);
+      const [message, ...details] = args;
+      logger.log(level, "main-console", String(message ?? ""), details.length ? details : undefined);
+    };
+  }
+  const store = createGameStore(app);
+  process.on("uncaughtException", (error) => {
+    logger.log("FATAL", "main", "Uncaught exception; shutting down", error);
+    app.quit();
+  });
+  process.on("unhandledRejection", (reason) => logger.log("ERROR", "main", "Unhandled promise rejection", reason instanceof Error ? reason : { reason }));
+  app.on("child-process-gone", (_event, details) => logger.log("ERROR", "electron", "Child process exited unexpectedly", details));
+  const ipcMain = require("electron").ipcMain;
+  const originalHandle = ipcMain.handle.bind(ipcMain);
+  const originalOn = ipcMain.on.bind(ipcMain);
+  ipcMain.on = (channel, listener) => originalOn(channel, (event, ...args) => {
+    try {
+      const result = listener(event, ...args);
+      if (result && typeof result.then === "function") result.catch((error) => logger.log("ERROR", `ipc:${channel}`, "IPC event failed", error));
+      return result;
+    } catch (error) {
+      logger.log("ERROR", `ipc:${channel}`, "IPC event failed", error);
+      throw error;
+    }
+  });
+  ipcMain.handle = (channel, listener) => originalHandle(channel, async (event, ...args) => {
+    try { return await listener(event, ...args); }
+    catch (error) { logger.log("ERROR", `ipc:${channel}`, "IPC request failed", error); throw error; }
+  });
+  const diagnosticsService = createDiagnosticsService({ app, logger, store, getMainWindow: () => mainWindow, trackingService: { getRunningGameCount: () => trackingService?.getRunningGameCount?.() ?? 0 } });
+  ipcMain.on("renderer-log", (_event, entry) => {
+    const level = ["DEBUG", "INFO", "WARN", "ERROR", "FATAL"].includes(entry?.level) ? entry.level : "ERROR";
+    logger.log(level, "renderer", String(entry?.message || "Renderer message"), entry?.details);
+  });
 
   function focusWindow(win) {
     if (!win || win.isDestroyed()) return false;
@@ -38,56 +81,16 @@ function bootstrap() {
   }
 
   function focusExistingInstance() {
-    if (focusWindow(mainWindow)) return;
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      trayService.showLauncher();
+      return;
+    }
     focusWindow(splash);
   }
 
   app.on("second-instance", () => {
     focusExistingInstance();
   });
-
-  // =========================
-  // AUTO UPDATER
-  // =========================
-  function setupAutoUpdates(win) {
-    autoUpdater.autoDownload = true;
-    autoUpdater.autoInstallOnAppQuit = true;
-
-    autoUpdater.on("checking-for-update", () => {
-      win.webContents.send("update-status", { status: "checking" });
-    });
-
-    autoUpdater.on("update-available", (info) => { 
-      win.webContents.send("update-status", {
-        status: "available",
-        version: info.version,
-      });
-    });
-
-    autoUpdater.on("update-not-available", () => {
-      win.webContents.send("update-status", { status: "none" });
-    });
-
-    autoUpdater.on("download-progress", (progress) => {
-      win.webContents.send("update-progress", {
-        percent: progress.percent.toFixed(2),
-        speed: progress.bytesPerSecond,
-      });
-    });
-
-    autoUpdater.on("update-downloaded", () => {
-      win.webContents.send("update-status", { status: "ready" });
-    });
-
-    autoUpdater.on("error", (err) => {
-      win.webContents.send("update-status", {
-        status: "error",
-        message: err.message,
-      });
-    });
-
-    autoUpdater.checkForUpdates();
-  }
 
   const updateService = createGameUpdateService({ store });
 
@@ -98,19 +101,33 @@ function bootstrap() {
     systemActivityService,
   });
 
+  appUpdateService = createAppUpdateService({
+    autoUpdater,
+    app,
+    getMainWindow,
+    logger,
+    canInstallUpdate: () => trackingService.getRunningGameCount() === 0,
+  });
+  appUpdateService.setup();
+  trayService = createTrayService({
+    getMainWindow,
+    checkForUpdates: () => appUpdateService.checkForUpdates(),
+  });
+
   const launchService = createGameLaunchService({
     store,
     getMainWindow,
     detectionService,
     processService,
     trackingService,
+    hideMainWindow: () => trayService.hideLauncher(),
   });
 
   const hostService = createHostService();
 
   registerIpcHandlers({
-    ipcMain: require("electron").ipcMain,
-    autoUpdater,
+    ipcMain,
+    appUpdateService,
     store,
     trackingService,
     launchService,
@@ -121,6 +138,9 @@ function bootstrap() {
     cpService,
     popupWindowService,
     adminSocketService,
+    logger,
+    diagnosticsService,
+    hideMainWindow: () => trayService.hideLauncher(),
   });
 
   // =========================
@@ -148,21 +168,38 @@ function bootstrap() {
     splash.loadFile(path.join(__dirname, "../renderer/splash.html")); 
     try {
       await store.init();
+      logger.log("INFO", "storage", "Application database initialized");
     } catch (err) {
+      logger.log("FATAL", "storage", "Failed to initialize application database", err);
       console.error("Failed to initialize store:", err);
     }
     // 3. CREATE MAIN WINDOW HIDDEN
     mainWindow = createWindow({
       show: false,
     });
+    mainWindow.webContents.on("render-process-gone", (_event, details) => logger.log("ERROR", "renderer", "Renderer process exited unexpectedly", details));
+    mainWindow.webContents.on("did-fail-load", (_event, code, description, url, isMainFrame) => {
+      if (isMainFrame) logger.log("ERROR", "renderer", "Page failed to load", { code, description, url });
+    });
+    mainWindow.webContents.on("console-message", (_event, details) => {
+      if (details.level >= 2) logger.log(details.level >= 3 ? "ERROR" : "WARN", "renderer-console", details.message);
+    });
+    mainWindow.on("minimize", (event) => {
+      event.preventDefault();
+      trayService.hideLauncher();
+    });
+    trayService.create();
     // 4. WAIT UNTIL MAIN WINDOW IS READY
     mainWindow.once("ready-to-show", async () => {
       try {
         // 5. BACKGROUND BOOTSTRAP
-        setupAutoUpdates(mainWindow);
+        appUpdateService.checkForUpdates().catch((error) => {
+          logger.log("ERROR", "updater", "Update check failed", error);
+        });
 
         adminSocketService.connectSocketFromStore(store);
       } catch (err) {
+        logger.log("ERROR", "startup", "Background bootstrap failed", err);
         console.error("Bootstrap error:", err);
       }
 
@@ -180,7 +217,9 @@ function bootstrap() {
   });
 
   app.on("before-quit", () => {
+    logger.log("INFO", "app", "Application shutting down");
     systemActivityService.stop();
+    trayService.destroy();
   });
 
   app.on("activate", () => {
