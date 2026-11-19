@@ -20,7 +20,7 @@
         "provider": "github",
         "owner": "jldems-dev",
         "repo": "jlj-launcher",
-        "releaseType": "draft"
+        "releaseType": "release"
       }
     ],
     "asar": false,
