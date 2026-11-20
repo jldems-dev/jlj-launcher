@@ -358,12 +358,13 @@ namespace JLJ.WebsiteProtection
                     lock (_pipeGate) _activePipe = pipe;
                     pipe.WaitForConnection();
                     if (!_running) break;
-                    string callerSid;
-                    try { callerSid = _resolveCallerSid(pipe); }
-                    catch { _log("PIPE_IDENTITY_ERROR"); throw; }
                     string message;
                     try { message = ReadMessageWithTimeout(pipe, TimeSpan.FromSeconds(5)); }
                     catch { _log("PIPE_READ_ERROR"); throw; }
+                    // Windows impersonates the client associated with the last pipe message read.
+                    string callerSid;
+                    try { callerSid = _resolveCallerSid(pipe); }
+                    catch { _log("PIPE_IDENTITY_ERROR"); throw; }
                     string response = _protocol.Handle(message, callerSid);
                     byte[] bytes = new UTF8Encoding(false, true).GetBytes(response + "\n");
                     if (bytes.Length > PolicySnapshotValidator.MaximumMessageBytes) throw new InvalidDataException("Response exceeded protocol limit");

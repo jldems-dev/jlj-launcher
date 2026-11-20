@@ -30,7 +30,11 @@ function registerIpcHandlers({
   websiteServiceClient,
 }) {
   const requireOwner = (event) => requireTrustedOwner(event, { mainWindow: getMainWindow(), app, ownerSession });
-  const importPreviews = createImportPreviewManager({ dialog, getMainWindow, repository: store });
+  const importPreviews = createImportPreviewManager({
+    dialog,
+    getMainWindow,
+    repository: { listRules: store.listWebsiteRules, applyImportedRules: store.applyImportedWebsiteRules },
+  });
 
   ipcMain.handle("app-update:get-state", () => appUpdateService.getState());
   ipcMain.handle("app-update:check", () => appUpdateService.checkForUpdates());
@@ -129,11 +133,77 @@ function registerIpcHandlers({
     const rules = store.listWebsiteRules().map(({ domain, action, enabled, includeSubdomains }) => ({ domain, action, enabled, includeSubdomains }));
     return createPolicySnapshot(rules, settings.policyRevision);
   };
+  let pendingPolicySync = Promise.resolve();
+  const syncServicePolicy = () => {
+    pendingPolicySync = pendingPolicySync.then(() => {
+      let policy;
+      try { policy = makeServicePolicy(); }
+      catch { return { available: false, code: "INVALID_POLICY" }; }
+      return serviceCall(() => websiteServiceClient.applyPolicy(policy));
+    });
+    return pendingPolicySync;
+  };
 
-  ipcMain.handle("website-access:service-status", (event) => {
+  const protectionReadiness = (service) => {
+    const reasons = [];
+    let policySynchronized = false;
+    if (!service.available) {
+      reasons.push(`The Windows protection service could not be reached (${service.code}). Confirm it is installed and running.`);
+    } else {
+      const status = service.result;
+      if (status.state !== "healthy" || status.lastErrorCode) {
+        reasons.push(`The protection service is ${status.state}${status.lastErrorCode ? ` (${status.lastErrorCode})` : ""}.`);
+      }
+      try {
+        const policy = makeServicePolicy();
+        policySynchronized = policy.policyRevision === status.lastAcceptedRevision && policy.sha256 === status.lastAcceptedSha256;
+        if (!policySynchronized) reasons.push("Sync the current policy to the service before enabling protection.");
+        if (!policy.rules.some((rule) => rule.enabled && rule.action === "allow")) reasons.push("Add at least one enabled ALLOW rule.");
+      } catch {
+        reasons.push("The launcher could not validate the saved website policy.");
+      }
+      reasons.push(status.resolverConfigured
+        ? "The service cannot verify upstream DNS resolution."
+        : "The service has no configured and tested upstream DNS resolver.");
+      reasons.push("Windows DNS recovery and enforcement controls are unavailable in this service build.");
+    }
+    return { policySynchronized, reasons };
+  };
+
+  ipcMain.handle("website-access:service-status", async (event) => {
     requireOwner(event);
-    return serviceCall(() => websiteServiceClient.getStatus());
+    const service = await serviceCall(() => websiteServiceClient.getStatus());
+    return { ...service, readiness: protectionReadiness(service) };
   });
+
+  let protectionRequestPending = false;
+  ipcMain.handle("website-access:request-protection", async (event, enable) => {
+    requireOwner(event);
+    if (typeof enable !== "boolean") throw new Error("Protection request is invalid");
+    if (protectionRequestPending) return { reasons: ["A protection request is already in progress."] };
+
+    protectionRequestPending = true;
+    const action = enable ? "Enable" : "Disable";
+    const reasons = [];
+    try {
+      const service = await serviceCall(() => websiteServiceClient.getStatus());
+      if (enable || !service.available) {
+        reasons.push(...protectionReadiness(service).reasons);
+      } else if (!service.result.enforcementActive) {
+        // Inactive enforcement alone does not verify that normal DNS has been restored.
+        reasons.push("The service reports inactive enforcement. DNS restoration has not been verified.");
+      } else {
+        reasons.push("Windows DNS recovery and enforcement controls are unavailable in this service build.");
+      }
+    } catch {
+      reasons.push("The launcher could not complete the protection checks.");
+    } finally {
+      protectionRequestPending = false;
+    }
+    logger?.log("WARN", "website-access", `${action} protection request refused`, { reasons });
+    return { reasons };
+  });
+
   ipcMain.handle("website-access:service-capabilities", (event) => {
     requireOwner(event);
     return serviceCall(() => websiteServiceClient.getCapabilities());
@@ -147,10 +217,7 @@ function registerIpcHandlers({
   });
   ipcMain.handle("website-access:service-sync-policy", (event) => {
     requireOwner(event);
-    let policy;
-    try { policy = makeServicePolicy(); }
-    catch { return Promise.resolve({ available: false, code: "INVALID_POLICY" }); }
-    return serviceCall(() => websiteServiceClient.applyPolicy(policy));
+    return syncServicePolicy();
   });
   ipcMain.handle("website-access:service-restore-policy", (event) => {
     requireOwner(event);
@@ -163,22 +230,28 @@ function registerIpcHandlers({
     return store.listWebsiteRules(filters);
   });
 
-  ipcMain.handle("website-access:save-rule", (event, rule) => {
+  ipcMain.handle("website-access:save-rule", async (event, rule) => {
     requireOwner(event);
     if (!rule || typeof rule !== "object" || Array.isArray(rule) || Object.keys(rule).some((key) => !["id", "domain", "action", "enabled", "includeSubdomains"].includes(key))) throw new Error("Rule payload is invalid");
-    return store.saveWebsiteRule(rule);
+    const saved = store.saveWebsiteRule(rule);
+    await syncServicePolicy();
+    return saved;
   });
 
-  ipcMain.handle("website-access:set-rule-enabled", (event, payload) => {
+  ipcMain.handle("website-access:set-rule-enabled", async (event, payload) => {
     requireOwner(event);
     if (!payload || typeof payload !== "object" || Array.isArray(payload) || Object.keys(payload).some((key) => !["id", "enabled"].includes(key))) throw new Error("Rule update is invalid");
-    return store.setWebsiteRuleEnabled(payload.id, payload.enabled);
+    const changed = store.setWebsiteRuleEnabled(payload.id, payload.enabled);
+    if (changed) await syncServicePolicy();
+    return changed;
   });
 
-  ipcMain.handle("website-access:remove-rule", (event, payload) => {
+  ipcMain.handle("website-access:remove-rule", async (event, payload) => {
     requireOwner(event);
     if (!payload || typeof payload !== "object" || Array.isArray(payload) || Object.keys(payload).some((key) => key !== "id")) throw new Error("Rule removal is invalid");
-    return store.removeWebsiteRule(payload.id);
+    const removed = store.removeWebsiteRule(payload.id);
+    if (removed) await syncServicePolicy();
+    return removed;
   });
 
   ipcMain.handle("website-access:get-settings", (event) => {
@@ -186,9 +259,11 @@ function registerIpcHandlers({
     return store.getWebsiteAccessSettings();
   });
 
-  ipcMain.handle("website-access:save-settings", (event, settings) => {
+  ipcMain.handle("website-access:save-settings", async (event, settings) => {
     requireOwner(event);
-    return store.saveWebsiteAccessSettings(settings);
+    const saved = store.saveWebsiteAccessSettings(settings);
+    await syncServicePolicy();
+    return saved;
   });
 
   ipcMain.handle("website-access:preview-import", (event) => {
@@ -196,9 +271,11 @@ function registerIpcHandlers({
     return importPreviews.preview(event.sender.id);
   });
 
-  ipcMain.handle("website-access:apply-import", (event, previewId) => {
+  ipcMain.handle("website-access:apply-import", async (event, previewId) => {
     requireOwner(event);
-    return importPreviews.apply(previewId, event.sender.id);
+    const imported = importPreviews.apply(previewId, event.sender.id);
+    await syncServicePolicy();
+    return imported;
   });
 
   ipcMain.handle("website-access:export", async (event) => {

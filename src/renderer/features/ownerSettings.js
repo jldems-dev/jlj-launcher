@@ -16,6 +16,7 @@ const PC_SPEC_FIELD_IDS = {
 
 let cachedPcSpecs = [];
 let websiteRules = [];
+let websiteProtectionRequestPending = false;
 let websiteEditing = { allow: null, block: null };
 let pendingWebsiteImportId = null;
 
@@ -28,10 +29,50 @@ function bindOwnerSettings() {
     try { await window.electronAPI.openLogsFolder(); } catch { showToast("Could not open the logs folder", "error"); }
   });
   $("exportDiagnosticsButton")?.addEventListener("click", exportDiagnostics);
+  bindOwnerSettingsTabs();
   bindWebsiteAccessControls();
 
   $("ownerSettingsModal")?.addEventListener("click", (e) => {
     if (e.target === e.currentTarget) closeOwnerSettings();
+  });
+}
+
+function bindOwnerSettingsTabs() {
+  const tabList = $("ownerSettingsTabs");
+  if (!tabList) return;
+  const tabs = Array.from(tabList.querySelectorAll('[role="tab"]'));
+
+  function selectTab(selectedTab) {
+    if (selectedTab.getAttribute("aria-selected") === "true") return;
+    for (const tab of tabs) {
+      const selected = tab === selectedTab;
+      tab.setAttribute("aria-selected", String(selected));
+      tab.tabIndex = selected ? 0 : -1;
+      $(tab.getAttribute("aria-controls")).hidden = !selected;
+    }
+    $("ownerSettingsTabContent").scrollTop = 0;
+  }
+
+  tabList.addEventListener("click", (event) => {
+    const tab = event.target.closest('[role="tab"]');
+    if (tab) selectTab(tab);
+  });
+
+  tabList.addEventListener("keydown", (event) => {
+    const index = tabs.indexOf(event.target);
+    if (index === -1) return;
+    const last = tabs.length - 1;
+    let next;
+    switch (event.key) {
+      case "ArrowRight": next = (index + 1) % tabs.length; break;
+      case "ArrowLeft": next = (index + last) % tabs.length; break;
+      case "Home": next = 0; break;
+      case "End": next = last; break;
+      default: return;
+    }
+    event.preventDefault();
+    selectTab(tabs[next]);
+    tabs[next].focus();
   });
 }
 
@@ -228,6 +269,9 @@ function bindWebsiteAccessControls() {
     document.querySelector(`[data-cancel-edit="${action}"]`)?.addEventListener("click", () => resetWebsiteRuleForm(action));
   });
   $("saveWebsiteAccessSettings")?.addEventListener("click", saveWebsiteSettingsFromForm);
+  $("syncWebsiteServicePolicy")?.addEventListener("click", syncWebsitePolicyFromSettings);
+  $("enableWebsiteProtection")?.addEventListener("click", () => requestWebsiteProtection(true));
+  $("disableWebsiteProtection")?.addEventListener("click", () => requestWebsiteProtection(false));
   $("previewWebsiteImport")?.addEventListener("click", previewWebsiteImport);
   $("exportWebsiteRules")?.addEventListener("click", exportWebsiteRules);
   $("websiteImportPreview")?.addEventListener("click", async (event) => {
@@ -240,19 +284,22 @@ async function loadWebsiteAccessSettings() {
   const status = $("websiteAccessStatus");
   const feedback = $("websiteSettingsFeedback");
   if (!status) return;
+  $("enableWebsiteProtection").disabled = true;
+  $("disableWebsiteProtection").hidden = true;
+  $("websiteProtectionReadiness").textContent = "Checking protection prerequisites…";
   status.textContent = "Loading protection status…";
   try {
-    const [accessStatus, settings, rules, logs] = await Promise.all([
+    const [accessStatus, serviceStatus, settings, rules, logs] = await Promise.all([
       window.electronAPI.getWebsiteAccessStatus(),
+      window.electronAPI.getWebsiteServiceStatus(),
       window.electronAPI.getWebsiteAccessSettings(),
       window.electronAPI.listWebsiteRules({}),
       window.electronAPI.listWebsiteAccessLogs({ limit: 20 }),
     ]);
-    renderWebsiteAccessStatus(accessStatus);
+    renderWebsiteAccessStatus(accessStatus, serviceStatus);
     websiteRules = rules;
     renderWebsiteRuleList("allow");
     renderWebsiteRuleList("block");
-    $("websiteProtectionEnabled").checked = settings.enabled;
     $("websiteProtectionMode").value = "monitoring";
     $("websiteDefaultAction").value = settings.defaultAction;
     $("websiteLogRetentionDays").value = String(settings.logRetentionDays);
@@ -260,21 +307,33 @@ async function loadWebsiteAccessSettings() {
     if (feedback) feedback.textContent = "";
   } catch (error) {
     status.textContent = error?.message || "Website Access Control status is unavailable.";
+    $("websiteProtectionReadiness").textContent = "Protection prerequisites could not be verified.";
     if (feedback) feedback.textContent = "Could not load stored website settings.";
   }
 }
 
-function renderWebsiteAccessStatus(data) {
+function renderWebsiteAccessStatus(data, service = { available: false, code: "SERVICE_UNAVAILABLE" }) {
   const target = $("websiteAccessStatus");
   if (!target) return;
+  const enforcing = service?.available && service.result.enforcementActive === true;
+  const reasons = service?.readiness?.reasons;
+  $("enableWebsiteProtection").hidden = enforcing;
+  $("enableWebsiteProtection").disabled = websiteProtectionRequestPending || !service?.available || reasons?.length !== 0;
+  $("disableWebsiteProtection").hidden = !enforcing;
+  $("disableWebsiteProtection").disabled = websiteProtectionRequestPending;
+  $("websiteProtectionReadiness").textContent = reasons?.join(" ") ?? "Protection prerequisites could not be verified.";
   target.replaceChildren();
   const values = [
-    ["Configured", data.protectionEnabled ? "Enabled (stored only)" : "Disabled"],
-    ["Service", "Not installed"],
-    ["Mode", "Monitoring (stored only)"],
+    ["Protection", service?.available ? (enforcing ? "Enabled" : "Disabled") : "Unknown"],
+    ["Service", service?.available ? service.result.state : service?.code === "SERVICE_UNAVAILABLE" ? "Unavailable (not installed or not running)" : `Unavailable (${service?.code || "unknown error"})`],
+    ["Mode", service?.available ? service.result.mode : "Unknown"],
     ["Policy revision", String(data.policyRevision)],
-    ["Last synchronization", "Not synchronized"],
-    ["Recovery", "Not applicable; enforcement is unavailable"],
+    ["Service policy revision", service?.available ? String(service.result.lastAcceptedRevision) : "Unavailable"],
+    ["Policy synchronization", service?.readiness?.policySynchronized ? "Synchronized" : "Pending"],
+    ["Service heartbeat (UTC)", service?.available ? service.result.heartbeatUtc : "Unavailable"],
+    ["Service error", service?.available ? (service.result.lastErrorCode || "None") : (service?.code || "SERVICE_UNAVAILABLE")],
+    ["Resolver", service?.available ? (service.result.resolverConfigured ? "Configured" : "Not configured") : "Unknown"],
+    ["Enforcement", service?.available ? (enforcing ? "Active" : "Inactive") : "Unknown"],
   ];
   values.forEach(([label, value]) => {
     const item = document.createElement("div");
@@ -400,20 +459,78 @@ async function refreshWebsiteRules() {
   websiteRules = await window.electronAPI.listWebsiteRules({});
   renderWebsiteRuleList("allow");
   renderWebsiteRuleList("block");
-  renderWebsiteAccessStatus(await window.electronAPI.getWebsiteAccessStatus());
+  const [accessStatus, serviceStatus] = await Promise.all([
+    window.electronAPI.getWebsiteAccessStatus(),
+    window.electronAPI.getWebsiteServiceStatus(),
+  ]);
+  renderWebsiteAccessStatus(accessStatus, serviceStatus);
+}
+
+async function syncWebsitePolicyFromSettings() {
+  const button = $("syncWebsiteServicePolicy");
+  const feedback = $("websitePolicySyncFeedback");
+  button.disabled = true;
+  feedback.textContent = "Sending rules…";
+  try {
+    const sync = await window.electronAPI.syncWebsiteServicePolicy();
+    const [accessStatus, serviceStatus] = await Promise.all([
+      window.electronAPI.getWebsiteAccessStatus(),
+      window.electronAPI.getWebsiteServiceStatus(),
+    ]);
+    renderWebsiteAccessStatus(accessStatus, serviceStatus);
+    feedback.textContent = sync.available
+      ? `Service accepted policy revision ${sync.result.policyRevision}.`
+      : `Could not sync rules (${sync.code}).`;
+  } catch (error) {
+    feedback.textContent = error?.message || "Could not sync rules.";
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function requestWebsiteProtection(enable) {
+  const enableButton = $("enableWebsiteProtection");
+  const disableButton = $("disableWebsiteProtection");
+  const feedback = $("websiteProtectionFeedback");
+  if (websiteProtectionRequestPending || (enable ? enableButton.disabled : disableButton.disabled)) return;
+  if (!window.confirm(enable ? "Enable whitelist-only DNS protection?" : "Disable DNS protection and restore the original DNS configuration?")) return;
+
+  websiteProtectionRequestPending = true;
+  enableButton.disabled = true;
+  disableButton.disabled = true;
+  feedback.textContent = "Checking protection status…";
+  try {
+    const { reasons } = await window.electronAPI.requestWebsiteProtection(enable);
+    feedback.textContent = reasons.join(" ");
+    const [accessStatus, serviceStatus] = await Promise.all([
+      window.electronAPI.getWebsiteAccessStatus(),
+      window.electronAPI.getWebsiteServiceStatus(),
+    ]);
+    websiteProtectionRequestPending = false;
+    renderWebsiteAccessStatus(accessStatus, serviceStatus);
+  } catch (error) {
+    feedback.textContent = error?.message || "Could not verify protection status.";
+  } finally {
+    websiteProtectionRequestPending = false;
+  }
 }
 
 async function saveWebsiteSettingsFromForm() {
   const feedback = $("websiteSettingsFeedback");
   try {
+    const existingSettings = await window.electronAPI.getWebsiteAccessSettings();
     const settings = await window.electronAPI.saveWebsiteAccessSettings({
-      enabled: $("websiteProtectionEnabled").checked,
+      enabled: existingSettings.enabled,
       mode: "monitoring",
       defaultAction: $("websiteDefaultAction").value,
       logRetentionDays: Number($("websiteLogRetentionDays").value),
     });
     if (feedback) feedback.textContent = `Stored settings saved. Policy revision ${settings.policyRevision}. These settings do not change network traffic.`;
-    renderWebsiteAccessStatus(await window.electronAPI.getWebsiteAccessStatus());
+    const [accessStatus, serviceStatus] = await Promise.all([
+      window.electronAPI.getWebsiteAccessStatus(),
+      window.electronAPI.getWebsiteServiceStatus(),
+    ]);
+    renderWebsiteAccessStatus(accessStatus, serviceStatus);
   } catch (error) {
     if (feedback) feedback.textContent = error?.message || "Could not save website settings.";
   }
