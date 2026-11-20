@@ -568,9 +568,8 @@ async function login() {
   }
 
   try {
-    const valid = window.electronAPI?.verifyOwner
-      ? await window.electronAPI.verifyOwner(username, password)
-      : username === "jldems" && password === "0925";
+    if (!window.electronAPI?.verifyOwner) throw new Error("Owner authentication is unavailable");
+    const valid = await window.electronAPI.verifyOwner(username, password);
 
     if (valid) {
       State.isOwnerLoggedIn = true;
@@ -610,6 +609,12 @@ function closeLoginModal() {
 function logout() {
   if (State.currentlyPlaying) stopPlaying();
 
+  window.electronAPI?.logoutOwner?.();
+  clearOwnerUiState();
+  showToast("Logged out", "info");
+}
+
+function clearOwnerUiState() {
   State.isOwnerLoggedIn = false;
   $("loginText").textContent = "Owner Login";
   $("ownerBadge").style.display = "none";
@@ -619,7 +624,6 @@ function logout() {
   $("openGpeditNav").style.display = "none";
   closeOwnerSettings();
   applyFilters();
-  showToast("Logged out", "info");
 }
 
 // ============================================================

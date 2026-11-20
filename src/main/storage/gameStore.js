@@ -1,8 +1,12 @@
 const fs = require("fs");
 const path = require("path");
+const crypto = require("node:crypto");
 const initSqlJs = require("sql.js");
 const { OWNER_DEFAULTS, createDefaults } = require("./defaultData");
 const { LEFT4DEAD2_MAPS } = require("./defaultMaps");
+const { hashPassword, verifyPassword, isPasswordHash } = require("../security/passwordVerifier");
+const { applyWebsiteAccessMigrations, getAppliedMigrations } = require("./websiteAccessMigrations");
+const { createWebsiteAccessRepository } = require("./websiteAccessRepository");
 
 const GAME_COLUMNS = [
   "id",
@@ -95,11 +99,14 @@ function createGameStore(app, rootDir = process.cwd()) {
   let legacyDbPath;
   let db;
   let data = createDefaults();
+  let websiteAccessReady = false;
+  const websiteAccess = createWebsiteAccessRepository({ getDatabase: () => db, persist, isReady: () => websiteAccessReady });
 
   async function init() {
     dbPath = path.join(app.getPath("userData"), "database", "launcher.db");
     legacyDbPath = path.join(rootDir, "database", "launcher.db");
     fs.mkdirSync(path.dirname(dbPath), { recursive: true });
+    websiteAccessReady = false;
 
     migrateLegacyDatabase();
 
@@ -113,11 +120,69 @@ function createGameStore(app, rootDir = process.cwd()) {
       db = new SQL.Database();
     }
 
+    backupBeforeSchemaChanges(SQL);
     createSchema();
     ensureOwner();
     ensureLeft4Dead2Maps();
+    applyWebsiteAccessMigrations(db);
     loadData();
     persist();
+    verifyDatabaseFileIntegrity(SQL);
+    websiteAccessReady = true;
+  }
+
+  function hasTable(tableName) {
+    return !!db.exec("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", [tableName])[0]?.values?.length;
+  }
+
+  function hasColumn(tableName, columnName) {
+    if (!hasTable(tableName)) return false;
+    return (db.exec(`PRAGMA table_info(${tableName});`)[0]?.values || []).some((row) => row[1] === columnName);
+  }
+
+  function schemaChangesRequired() {
+    const applied = getAppliedMigrations(db);
+    const latest = require("./websiteAccessMigrations").MIGRATIONS.at(-1)?.version || 0;
+    if ((applied.at(-1)?.version || 0) < latest) return true;
+    const requiredColumns = [
+      ["owner", "gcash_number"],
+      ...PC_SPEC_COLUMNS.map((column) => ["pc_specs", column]),
+    ];
+    const requiredTables = ["owner", "games", "settings", "left4dead2_maps", "pc_specs"];
+    return requiredTables.some((table) => !hasTable(table)) || requiredColumns.some(([table, column]) => !hasColumn(table, column));
+  }
+
+  function backupBeforeSchemaChanges(SQL) {
+    if (!fs.existsSync(dbPath) || !schemaChangesRequired()) return null;
+    const integrity = db.exec("PRAGMA integrity_check;")[0]?.values?.[0]?.[0];
+    if (integrity !== "ok") throw new Error("Database integrity check failed; schema migrations were not applied");
+
+    const original = fs.readFileSync(dbPath);
+    const originalHash = crypto.createHash("sha256").update(original).digest("hex");
+    const latestVersion = require("./websiteAccessMigrations").MIGRATIONS.at(-1)?.version || 0;
+    const backupPath = `${dbPath}.pre-schema-v${latestVersion}-${Date.now()}-${crypto.randomBytes(4).toString("hex")}.bak`;
+    fs.copyFileSync(dbPath, backupPath, fs.constants.COPYFILE_EXCL);
+    const backupBytes = fs.readFileSync(backupPath);
+    const backupHash = crypto.createHash("sha256").update(backupBytes).digest("hex");
+    if (backupHash !== originalHash) {
+      try { fs.unlinkSync(backupPath); } catch {}
+      throw new Error("Database backup verification failed; schema migrations were not applied");
+    }
+    const backupDb = new SQL.Database(backupBytes);
+    const backupIntegrity = backupDb.exec("PRAGMA integrity_check;")[0]?.values?.[0]?.[0];
+    backupDb.close();
+    if (backupIntegrity !== "ok") throw new Error("Database backup integrity check failed; schema migrations were not applied");
+    return { backupPath, originalHash };
+  }
+
+  function verifyDatabaseFileIntegrity(SQL) {
+    const fileDb = new SQL.Database(fs.readFileSync(dbPath));
+    try {
+      const integrity = fileDb.exec("PRAGMA integrity_check;")[0]?.values?.[0]?.[0];
+      if (integrity !== "ok") throw new Error("Database integrity verification failed after schema migration");
+    } finally {
+      fileDb.close();
+    }
   }
 
   function migrateLegacyDatabase() {
@@ -279,7 +344,14 @@ function createGameStore(app, rootDir = process.cwd()) {
   }
 
   function persist() {
-    fs.writeFileSync(dbPath, Buffer.from(db.export()));
+    const tempPath = `${dbPath}.${process.pid}.${Date.now()}.tmp`;
+    try {
+      fs.writeFileSync(tempPath, Buffer.from(db.export()), { flag: "wx" });
+      fs.renameSync(tempPath, dbPath);
+    } catch (error) {
+      try { fs.unlinkSync(tempPath); } catch {}
+      throw error;
+    }
   }
 
   function save() {
@@ -461,14 +533,27 @@ function createGameStore(app, rootDir = process.cwd()) {
     return true;
   }
 
-  function verifyOwner(username, password) {
-    return data.owner.username === username && data.owner.password === password;
+  async function verifyOwner(username, password) {
+    if (typeof username !== "string" || typeof password !== "string") return false;
+    if (data.owner.username !== username || !data.owner.password) return false;
+    const valid = await verifyPassword(data.owner.password, password);
+    if (valid && !isPasswordHash(data.owner.password)) {
+      const upgraded = await hashPassword(password);
+      db.run("UPDATE owner SET password = ? WHERE id = 1", [upgraded]);
+      data.owner.password = upgraded;
+      persist();
+    }
+    return valid;
   }
 
-  function changePassword(currentPass, newPass) {
-    if (data.owner.password !== currentPass) return false;
-    data.owner.password = newPass;
-    save();
+  async function changePassword(currentPass, newPass) {
+    if (typeof newPass !== "string" || newPass.length < 12 || Buffer.byteLength(newPass, "utf8") > 1024) {
+      throw new Error("New password must be at least 12 characters and no more than 1024 UTF-8 bytes");
+    }
+    if (!(await verifyOwner(data.owner.username, currentPass))) return false;
+    data.owner.password = await hashPassword(newPass);
+    db.run("UPDATE owner SET password = ? WHERE id = 1", [data.owner.password]);
+    persist();
     return true;
   }
 
@@ -544,6 +629,16 @@ function createGameStore(app, rootDir = process.cwd()) {
     getGcashNumber,
     updateGcashNumber,
     getStorageInfo,
+    getWebsiteAccessStatus: websiteAccess.getStatus,
+    listWebsiteRules: websiteAccess.listRules,
+    saveWebsiteRule: websiteAccess.saveRule,
+    setWebsiteRuleEnabled: websiteAccess.setRuleEnabled,
+    removeWebsiteRule: websiteAccess.removeRule,
+    getWebsiteAccessSettings: websiteAccess.getSettings,
+    saveWebsiteAccessSettings: websiteAccess.saveSettings,
+    listWebsiteAccessLogs: websiteAccess.listLogs,
+    applyImportedWebsiteRules: websiteAccess.applyImportedRules,
+    exportWebsiteAccessConfig: websiteAccess.exportConfig,
   };
 }
 

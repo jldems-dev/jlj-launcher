@@ -362,6 +362,85 @@
 
                 <div class="server-url-status" id="serverUrlStatus">No server URL saved.</div>
 
+                <section class="website-access-section" aria-labelledby="websiteAccessHeading">
+                    <div class="settings-section-header">
+                        <div class="settings-icon"><img src="assets/icons/globe.svg" alt=""></div>
+                        <div>
+                            <div class="settings-title" id="websiteAccessHeading">Website Access Control</div>
+                            <div class="settings-subtitle">Manage stored domain rules. This version does not change network traffic.</div>
+                        </div>
+                    </div>
+                    <div class="website-access-notice" role="status">Network enforcement is not implemented. No DNS service is installed, and no DNS activity is being collected.</div>
+
+                    <div class="website-access-card">
+                        <h4>Protection Status</h4>
+                        <div class="website-access-status-grid" id="websiteAccessStatus" aria-live="polite">Loading status…</div>
+                    </div>
+
+                    <div class="website-access-card">
+                        <h4>Protection Settings</h4>
+                        <p class="website-access-muted">These settings are stored for a future service. They do not enable filtering in this version.</p>
+                        <div class="website-access-settings-row">
+                            <label class="website-access-check"><input type="checkbox" id="websiteProtectionEnabled"> Protection configured as enabled</label>
+                            <label class="form-group">Mode
+                                <select class="form-select" id="websiteProtectionMode" disabled><option value="monitoring">Monitoring</option><option value="enforcement" disabled>Enforcement (unavailable)</option></select>
+                            </label>
+                            <label class="form-group">Default action
+                                <select class="form-select" id="websiteDefaultAction"><option value="deny">Deny (stored only)</option><option value="allow">Allow (stored only)</option></select>
+                            </label>
+                            <label class="form-group">Log retention (days)
+                                <input class="form-input" id="websiteLogRetentionDays" type="number" min="1" max="3650" step="1" value="30">
+                            </label>
+                            <button class="btn btn-play" type="button" id="saveWebsiteAccessSettings">Save stored settings</button>
+                        </div>
+                        <div class="website-access-feedback" id="websiteSettingsFeedback" aria-live="polite"></div>
+                    </div>
+
+                    <div class="website-access-card">
+                        <h4>Website Whitelist</h4>
+                        <form id="websiteAllowRuleForm" class="website-rule-form" data-rule-action="allow">
+                            <label class="form-group">Domain
+                                <input class="form-input" id="websiteAllowDomain" maxlength="253" autocomplete="off" placeholder="example.com" required>
+                            </label>
+                            <label class="website-access-check"><input type="checkbox" id="websiteAllowSubdomains"> Include subdomains</label>
+                            <button class="btn btn-play" type="submit" id="websiteAllowSubmit">Add to whitelist</button>
+                            <button class="btn" type="button" data-cancel-edit="allow" hidden>Cancel edit</button>
+                        </form>
+                        <div class="website-list-toolbar"><input class="form-input" id="websiteAllowSearch" type="search" placeholder="Search whitelist" aria-label="Search whitelist"><span id="websiteAllowCount"></span></div>
+                        <div class="website-rule-list" id="websiteAllowList" role="list"></div>
+                    </div>
+
+                    <div class="website-access-card">
+                        <h4>Website Blocklist</h4>
+                        <form id="websiteBlockRuleForm" class="website-rule-form" data-rule-action="block">
+                            <label class="form-group">Domain
+                                <input class="form-input" id="websiteBlockDomain" maxlength="253" autocomplete="off" placeholder="example.com" required>
+                            </label>
+                            <label class="website-access-check"><input type="checkbox" id="websiteBlockSubdomains"> Include subdomains</label>
+                            <button class="btn btn-play" type="submit" id="websiteBlockSubmit">Add to blocklist</button>
+                            <button class="btn" type="button" data-cancel-edit="block" hidden>Cancel edit</button>
+                        </form>
+                        <div class="website-list-toolbar"><input class="form-input" id="websiteBlockSearch" type="search" placeholder="Search blocklist" aria-label="Search blocklist"><span id="websiteBlockCount"></span></div>
+                        <div class="website-rule-list" id="websiteBlockList" role="list"></div>
+                    </div>
+
+                    <div class="website-access-card">
+                        <h4>Import / Export</h4>
+                        <p class="website-access-muted">Versioned JSON contains normalized rules and stored protection settings only. It excludes credentials, machine identifiers and activity logs.</p>
+                        <div class="settings-actions">
+                            <button class="btn" type="button" id="previewWebsiteImport">Choose JSON to import</button>
+                            <button class="btn btn-play" type="button" id="exportWebsiteRules">Export normalized rules</button>
+                        </div>
+                        <div id="websiteImportPreview" class="website-import-preview" aria-live="polite"></div>
+                        <div id="websiteImportFeedback" class="website-access-feedback" aria-live="polite"></div>
+                    </div>
+
+                    <div class="website-access-card">
+                        <h4>Activity Logs</h4>
+                        <div class="website-access-empty" id="websiteAccessLogs">Activity logs are unavailable until a real DNS service is implemented. No DNS queries or visits have been recorded.</div>
+                    </div>
+                </section>
+
                 <div class="settings-section-header">
                     <div class="settings-icon"><img src="assets/icons/cpu.svg" alt=""></div>
                     <div><div class="settings-title">Diagnostics</div><div class="settings-subtitle">Application health and recent technical errors. No reports are uploaded automatically.</div></div>

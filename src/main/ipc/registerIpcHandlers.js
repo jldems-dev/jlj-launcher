@@ -1,8 +1,12 @@
 const { exec } = require("child_process");
 const util = require("util");
 const path = require("path");
-const { app, shell } = require('electron'); 
+const fs = require("node:fs/promises");
+const { app, shell, dialog } = require('electron');
 const systemActivityService = require("../services/systemActivityService");
+const { requireTrustedOwner, isTrustedMainFrame } = require("../security/ipcSecurity");
+const { createImportPreviewManager } = require("../websiteAccess/importExport");
+const { createPolicySnapshot } = require("../websiteAccess/policyEngine");
 
 const execAsync = util.promisify(exec);
 
@@ -22,7 +26,12 @@ function registerIpcHandlers({
   adminSocketService,
   logger,
   diagnosticsService,
+  ownerSession,
+  websiteServiceClient,
 }) {
+  const requireOwner = (event) => requireTrustedOwner(event, { mainWindow: getMainWindow(), app, ownerSession });
+  const importPreviews = createImportPreviewManager({ dialog, getMainWindow, repository: store });
+
   ipcMain.handle("app-update:get-state", () => appUpdateService.getState());
   ipcMain.handle("app-update:check", () => appUpdateService.checkForUpdates());
   ipcMain.handle("app-update:update", () => appUpdateService.updateApp());
@@ -84,12 +93,131 @@ function registerIpcHandlers({
     return store.updateGame(id, updates);
   });
 
-  ipcMain.handle("db-verify-owner", (event, username, password) => {
-    return store.verifyOwner(username, password);
+  ipcMain.handle("db-verify-owner", async (event, username, password) => {
+    if (!isTrustedMainFrame(event, getMainWindow(), app)) throw new Error("Unauthorized IPC sender");
+    if (typeof username !== "string" || username.length > 128 || typeof password !== "string" || password.length > 1024) return false;
+    ownerSession.invalidate("new-login-attempt");
+    const valid = await store.verifyOwner(username, password);
+    if (valid) ownerSession.establish(event.sender.id);
+    return valid;
   });
 
-  ipcMain.handle("db-change-password", (event, currentPass, newPass) => {
+  ipcMain.on("db-owner-logout", (event) => {
+    if (isTrustedMainFrame(event, getMainWindow(), app)) ownerSession.invalidate("logout");
+  });
+
+  ipcMain.handle("db-change-password", async (event, currentPass, newPass) => {
+    requireOwner(event);
+    if (typeof currentPass !== "string" || currentPass.length > 1024 || typeof newPass !== "string" || newPass.length > 1024) throw new Error("Password request is invalid");
     return store.changePassword(currentPass, newPass);
+  });
+
+  ipcMain.handle("website-access:get-status", (event) => {
+    requireOwner(event);
+    return store.getWebsiteAccessStatus();
+  });
+
+  const serviceCall = async (operation) => {
+    try { return { available: true, result: await operation() }; }
+    catch (error) {
+      const code = /^[A-Z][A-Z0-9_]{0,63}$/.test(error?.code || "") ? error.code : "SERVICE_UNAVAILABLE";
+      return { available: false, code };
+    }
+  };
+  const makeServicePolicy = () => {
+    const settings = store.getWebsiteAccessSettings();
+    const rules = store.listWebsiteRules().map(({ domain, action, enabled, includeSubdomains }) => ({ domain, action, enabled, includeSubdomains }));
+    return createPolicySnapshot(rules, settings.policyRevision);
+  };
+
+  ipcMain.handle("website-access:service-status", (event) => {
+    requireOwner(event);
+    return serviceCall(() => websiteServiceClient.getStatus());
+  });
+  ipcMain.handle("website-access:service-capabilities", (event) => {
+    requireOwner(event);
+    return serviceCall(() => websiteServiceClient.getCapabilities());
+  });
+  ipcMain.handle("website-access:service-validate-policy", (event) => {
+    requireOwner(event);
+    let policy;
+    try { policy = makeServicePolicy(); }
+    catch { return Promise.resolve({ available: false, code: "INVALID_POLICY" }); }
+    return serviceCall(() => websiteServiceClient.validatePolicy(policy));
+  });
+  ipcMain.handle("website-access:service-sync-policy", (event) => {
+    requireOwner(event);
+    let policy;
+    try { policy = makeServicePolicy(); }
+    catch { return Promise.resolve({ available: false, code: "INVALID_POLICY" }); }
+    return serviceCall(() => websiteServiceClient.applyPolicy(policy));
+  });
+  ipcMain.handle("website-access:service-restore-policy", (event) => {
+    requireOwner(event);
+    return serviceCall(() => websiteServiceClient.restoreLastKnownGood());
+  });
+
+  ipcMain.handle("website-access:list-rules", (event, filters = {}) => {
+    requireOwner(event);
+    if (!filters || typeof filters !== "object" || Array.isArray(filters) || Object.keys(filters).some((key) => !["action", "search", "enabled"].includes(key))) throw new Error("Rule filters are invalid");
+    return store.listWebsiteRules(filters);
+  });
+
+  ipcMain.handle("website-access:save-rule", (event, rule) => {
+    requireOwner(event);
+    if (!rule || typeof rule !== "object" || Array.isArray(rule) || Object.keys(rule).some((key) => !["id", "domain", "action", "enabled", "includeSubdomains"].includes(key))) throw new Error("Rule payload is invalid");
+    return store.saveWebsiteRule(rule);
+  });
+
+  ipcMain.handle("website-access:set-rule-enabled", (event, payload) => {
+    requireOwner(event);
+    if (!payload || typeof payload !== "object" || Array.isArray(payload) || Object.keys(payload).some((key) => !["id", "enabled"].includes(key))) throw new Error("Rule update is invalid");
+    return store.setWebsiteRuleEnabled(payload.id, payload.enabled);
+  });
+
+  ipcMain.handle("website-access:remove-rule", (event, payload) => {
+    requireOwner(event);
+    if (!payload || typeof payload !== "object" || Array.isArray(payload) || Object.keys(payload).some((key) => key !== "id")) throw new Error("Rule removal is invalid");
+    return store.removeWebsiteRule(payload.id);
+  });
+
+  ipcMain.handle("website-access:get-settings", (event) => {
+    requireOwner(event);
+    return store.getWebsiteAccessSettings();
+  });
+
+  ipcMain.handle("website-access:save-settings", (event, settings) => {
+    requireOwner(event);
+    return store.saveWebsiteAccessSettings(settings);
+  });
+
+  ipcMain.handle("website-access:preview-import", (event) => {
+    requireOwner(event);
+    return importPreviews.preview(event.sender.id);
+  });
+
+  ipcMain.handle("website-access:apply-import", (event, previewId) => {
+    requireOwner(event);
+    return importPreviews.apply(previewId, event.sender.id);
+  });
+
+  ipcMain.handle("website-access:export", async (event) => {
+    requireOwner(event);
+    const result = await dialog.showSaveDialog(getMainWindow(), {
+      title: "Export Website Access Rules",
+      defaultPath: "jlj-website-access.json",
+      filters: [{ name: "JSON files", extensions: ["json"] }],
+    });
+    if (result.canceled || !result.filePath) return { canceled: true };
+    const config = store.exportWebsiteAccessConfig();
+    await fs.writeFile(result.filePath, `${JSON.stringify(config, null, 2)}\n`, { encoding: "utf8", flag: "w" });
+    return { canceled: false };
+  });
+
+  ipcMain.handle("website-access:list-logs", (event, filters = {}) => {
+    requireOwner(event);
+    if (!filters || typeof filters !== "object" || Array.isArray(filters) || Object.keys(filters).some((key) => !["limit", "beforeId"].includes(key))) throw new Error("Log filters are invalid");
+    return store.listWebsiteAccessLogs(filters);
   });
 
   ipcMain.handle("db-get-gcash-number", () => {

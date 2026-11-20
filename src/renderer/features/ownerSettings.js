@@ -15,6 +15,9 @@ const PC_SPEC_FIELD_IDS = {
 };
 
 let cachedPcSpecs = [];
+let websiteRules = [];
+let websiteEditing = { allow: null, block: null };
+let pendingWebsiteImportId = null;
 
 function bindOwnerSettings() {
   $("savePcSpecButton")?.addEventListener("click", savePcSpecFromSettings);
@@ -25,6 +28,7 @@ function bindOwnerSettings() {
     try { await window.electronAPI.openLogsFolder(); } catch { showToast("Could not open the logs folder", "error"); }
   });
   $("exportDiagnosticsButton")?.addEventListener("click", exportDiagnostics);
+  bindWebsiteAccessControls();
 
   $("ownerSettingsModal")?.addEventListener("click", (e) => {
     if (e.target === e.currentTarget) closeOwnerSettings();
@@ -209,7 +213,285 @@ async function openOwnerSettings() {
   await loadServerUrlSetting();
   await loadPcSpecsDisplay();
   $("ownerSettingsModal")?.classList.add("active");
+  await loadWebsiteAccessSettings();
   loadDiagnostics();
+}
+
+function bindWebsiteAccessControls() {
+  ["allow", "block"].forEach((action) => {
+    $(`website${action === "allow" ? "Allow" : "Block"}RuleForm`)?.addEventListener("submit", (event) => {
+      event.preventDefault();
+      saveWebsiteRuleFromForm(action);
+    });
+    $(`website${action === "allow" ? "Allow" : "Block"}Search`)?.addEventListener("input", () => renderWebsiteRuleList(action));
+    $(`website${action === "allow" ? "Allow" : "Block"}List`)?.addEventListener("click", (event) => handleWebsiteRuleAction(event, action));
+    document.querySelector(`[data-cancel-edit="${action}"]`)?.addEventListener("click", () => resetWebsiteRuleForm(action));
+  });
+  $("saveWebsiteAccessSettings")?.addEventListener("click", saveWebsiteSettingsFromForm);
+  $("previewWebsiteImport")?.addEventListener("click", previewWebsiteImport);
+  $("exportWebsiteRules")?.addEventListener("click", exportWebsiteRules);
+  $("websiteImportPreview")?.addEventListener("click", async (event) => {
+    if (event.target?.id !== "applyWebsiteImport") return;
+    await applyWebsiteImport();
+  });
+}
+
+async function loadWebsiteAccessSettings() {
+  const status = $("websiteAccessStatus");
+  const feedback = $("websiteSettingsFeedback");
+  if (!status) return;
+  status.textContent = "Loading protection status…";
+  try {
+    const [accessStatus, settings, rules, logs] = await Promise.all([
+      window.electronAPI.getWebsiteAccessStatus(),
+      window.electronAPI.getWebsiteAccessSettings(),
+      window.electronAPI.listWebsiteRules({}),
+      window.electronAPI.listWebsiteAccessLogs({ limit: 20 }),
+    ]);
+    renderWebsiteAccessStatus(accessStatus);
+    websiteRules = rules;
+    renderWebsiteRuleList("allow");
+    renderWebsiteRuleList("block");
+    $("websiteProtectionEnabled").checked = settings.enabled;
+    $("websiteProtectionMode").value = "monitoring";
+    $("websiteDefaultAction").value = settings.defaultAction;
+    $("websiteLogRetentionDays").value = String(settings.logRetentionDays);
+    renderWebsiteLogs(logs);
+    if (feedback) feedback.textContent = "";
+  } catch (error) {
+    status.textContent = error?.message || "Website Access Control status is unavailable.";
+    if (feedback) feedback.textContent = "Could not load stored website settings.";
+  }
+}
+
+function renderWebsiteAccessStatus(data) {
+  const target = $("websiteAccessStatus");
+  if (!target) return;
+  target.replaceChildren();
+  const values = [
+    ["Configured", data.protectionEnabled ? "Enabled (stored only)" : "Disabled"],
+    ["Service", "Not installed"],
+    ["Mode", "Monitoring (stored only)"],
+    ["Policy revision", String(data.policyRevision)],
+    ["Last synchronization", "Not synchronized"],
+    ["Recovery", "Not applicable; enforcement is unavailable"],
+  ];
+  values.forEach(([label, value]) => {
+    const item = document.createElement("div");
+    const title = document.createElement("strong");
+    const content = document.createElement("span");
+    title.textContent = label;
+    content.textContent = value;
+    item.append(title, content);
+    target.append(item);
+  });
+}
+
+function renderWebsiteRuleList(action) {
+  const cap = action === "allow" ? "Allow" : "Block";
+  const target = $(`website${cap}List`);
+  const count = $(`website${cap}Count`);
+  if (!target) return;
+  const search = ($(`website${cap}Search`)?.value || "").trim().toLowerCase();
+  const rules = websiteRules.filter((rule) => rule.action === action && rule.domain.includes(search));
+  target.replaceChildren();
+  if (count) count.textContent = `${rules.length} rule${rules.length === 1 ? "" : "s"}`;
+  if (!rules.length) {
+    const empty = document.createElement("div");
+    empty.className = "website-access-empty";
+    empty.textContent = search ? "No rules match this search." : `No ${action === "allow" ? "whitelist" : "blocklist"} rules yet.`;
+    target.append(empty);
+    return;
+  }
+  rules.forEach((rule) => {
+    const row = document.createElement("div");
+    row.className = "website-rule-row";
+    row.setAttribute("role", "listitem");
+    const details = document.createElement("div");
+    details.className = "website-rule-details";
+    const domain = document.createElement("strong");
+    domain.textContent = rule.domain;
+    const meta = document.createElement("span");
+    meta.textContent = `${rule.enabled ? "Enabled" : "Disabled"}${rule.includeSubdomains ? " · Includes subdomains" : " · Exact domain only"}`;
+    details.append(domain, meta);
+    const actions = document.createElement("div");
+    actions.className = "website-rule-actions";
+    actions.append(
+      createWebsiteRuleButton("Edit", "edit", rule.id),
+      createWebsiteRuleButton(rule.enabled ? "Disable" : "Enable", "toggle", rule.id),
+      createWebsiteRuleButton("Remove", "remove", rule.id, true),
+    );
+    row.append(details, actions);
+    target.append(row);
+  });
+}
+
+function createWebsiteRuleButton(label, action, id, danger = false) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = danger ? "btn btn-danger website-rule-action" : "btn website-rule-action";
+  button.dataset.ruleAction = action;
+  button.dataset.ruleId = String(id);
+  button.textContent = label;
+  return button;
+}
+
+async function handleWebsiteRuleAction(event, listAction) {
+  const button = event.target.closest("button[data-rule-action]");
+  if (!button) return;
+  const id = Number(button.dataset.ruleId);
+  const rule = websiteRules.find((item) => item.id === id);
+  if (!rule || rule.action !== listAction) return;
+  try {
+    if (button.dataset.ruleAction === "edit") {
+      websiteEditing[listAction] = id;
+      const cap = listAction === "allow" ? "Allow" : "Block";
+      $(`website${cap}Domain`).value = rule.domain;
+      $(`website${cap}Subdomains`).checked = rule.includeSubdomains;
+      $(`website${cap}Submit`).textContent = `Save ${listAction === "allow" ? "whitelist" : "blocklist"} rule`;
+      document.querySelector(`[data-cancel-edit="${listAction}"]`).hidden = false;
+      $(`website${cap}Domain`).focus();
+      return;
+    }
+    if (button.dataset.ruleAction === "toggle") {
+      await window.electronAPI.setWebsiteRuleEnabled({ id, enabled: !rule.enabled });
+    } else if (button.dataset.ruleAction === "remove") {
+      if (!window.confirm(`Remove ${rule.domain} from the ${listAction === "allow" ? "whitelist" : "blocklist"}?`)) return;
+      await window.electronAPI.removeWebsiteRule({ id });
+      if (websiteEditing[listAction] === id) resetWebsiteRuleForm(listAction);
+    }
+    await refreshWebsiteRules();
+  } catch (error) {
+    showToast(error?.message || "Could not update website rule", "error");
+  }
+}
+
+async function saveWebsiteRuleFromForm(action) {
+  const cap = action === "allow" ? "Allow" : "Block";
+  const input = $(`website${cap}Domain`);
+  const feedback = $("websiteSettingsFeedback");
+  try {
+    const rule = {
+      ...(websiteEditing[action] ? { id: websiteEditing[action] } : {}),
+      domain: input.value,
+      action,
+      enabled: true,
+      includeSubdomains: $(`website${cap}Subdomains`).checked,
+    };
+    const saved = await window.electronAPI.saveWebsiteRule(rule);
+    resetWebsiteRuleForm(action);
+    await refreshWebsiteRules();
+    if (feedback) feedback.textContent = `Domain saved as ${saved.domain}.`;
+  } catch (error) {
+    if (feedback) feedback.textContent = error?.message || "Could not save this domain. Check its format and duplicates.";
+    input.focus();
+  }
+}
+
+function resetWebsiteRuleForm(action) {
+  const cap = action === "allow" ? "Allow" : "Block";
+  $(`website${cap}RuleForm`).reset();
+  websiteEditing[action] = null;
+  $(`website${cap}Submit`).textContent = `Add to ${action === "allow" ? "whitelist" : "blocklist"}`;
+  document.querySelector(`[data-cancel-edit="${action}"]`).hidden = true;
+}
+
+async function refreshWebsiteRules() {
+  websiteRules = await window.electronAPI.listWebsiteRules({});
+  renderWebsiteRuleList("allow");
+  renderWebsiteRuleList("block");
+  renderWebsiteAccessStatus(await window.electronAPI.getWebsiteAccessStatus());
+}
+
+async function saveWebsiteSettingsFromForm() {
+  const feedback = $("websiteSettingsFeedback");
+  try {
+    const settings = await window.electronAPI.saveWebsiteAccessSettings({
+      enabled: $("websiteProtectionEnabled").checked,
+      mode: "monitoring",
+      defaultAction: $("websiteDefaultAction").value,
+      logRetentionDays: Number($("websiteLogRetentionDays").value),
+    });
+    if (feedback) feedback.textContent = `Stored settings saved. Policy revision ${settings.policyRevision}. These settings do not change network traffic.`;
+    renderWebsiteAccessStatus(await window.electronAPI.getWebsiteAccessStatus());
+  } catch (error) {
+    if (feedback) feedback.textContent = error?.message || "Could not save website settings.";
+  }
+}
+
+function renderWebsiteLogs(result) {
+  const target = $("websiteAccessLogs");
+  if (!target) return;
+  target.textContent = result?.available
+    ? "No activity has been recorded."
+    : "Activity logs are unavailable until a real DNS service is implemented. No DNS queries or visits have been recorded.";
+}
+
+async function previewWebsiteImport() {
+  const previewTarget = $("websiteImportPreview");
+  const feedback = $("websiteImportFeedback");
+  pendingWebsiteImportId = null;
+  previewTarget.replaceChildren();
+  feedback.textContent = "Choose a versioned JSON file to validate.";
+  try {
+    const result = await window.electronAPI.previewWebsiteAccessImport();
+    if (result.canceled) { feedback.textContent = "Import canceled."; return; }
+    pendingWebsiteImportId = result.previewId;
+    const summary = document.createElement("p");
+    summary.textContent = `Preview: ${result.counts.add} add, ${result.counts.update} update, ${result.counts.skip} skip, ${result.counts.error} error.`;
+    previewTarget.append(summary);
+    result.entries.slice(0, 100).forEach((entry) => {
+      const line = document.createElement("div");
+      line.textContent = `${entry.domain || `Rule ${entry.index}`}: ${entry.disposition || "error"}${entry.reason ? ` — ${entry.reason}` : ""}`;
+      previewTarget.append(line);
+    });
+    result.errors.slice(0, 100).forEach((item) => {
+      const line = document.createElement("div");
+      line.textContent = `Rule ${item.index}: ${item.error}`;
+      previewTarget.append(line);
+    });
+    if (result.hasSettings) {
+      const settingLine = document.createElement("div");
+      settingLine.textContent = "This file also contains stored protection and log-retention settings.";
+      previewTarget.append(settingLine);
+    }
+    if (result.counts.add + result.counts.update > 0 || result.errors.length || result.hasSettings) {
+      const apply = document.createElement("button");
+      apply.type = "button";
+      apply.id = "applyWebsiteImport";
+      apply.className = "btn btn-play";
+      apply.textContent = "Confirm and apply valid rules";
+      previewTarget.append(apply);
+    }
+    feedback.textContent = "Review this preview. Nothing has been saved yet.";
+  } catch (error) {
+    feedback.textContent = error?.message || "Import validation failed.";
+  }
+}
+
+async function applyWebsiteImport() {
+  if (!pendingWebsiteImportId) return;
+  const feedback = $("websiteImportFeedback");
+  if (!window.confirm("Apply the valid rules shown in this import preview? This will update the stored rules and settings only.")) return;
+  try {
+    const result = await window.electronAPI.applyWebsiteAccessImport(pendingWebsiteImportId);
+    pendingWebsiteImportId = null;
+    $("websiteImportPreview").replaceChildren();
+    feedback.textContent = `${result.imported} rules imported. Network traffic was not changed.`;
+    await loadWebsiteAccessSettings();
+  } catch (error) {
+    feedback.textContent = error?.message || "Import could not be applied. Review the file and try again.";
+  }
+}
+
+async function exportWebsiteRules() {
+  const feedback = $("websiteImportFeedback");
+  try {
+    const result = await window.electronAPI.exportWebsiteAccessConfig();
+    feedback.textContent = result.canceled ? "Export canceled." : "Normalized rules exported.";
+  } catch (error) {
+    feedback.textContent = error?.message || "Export failed.";
+  }
 }
 
 async function loadDiagnostics() {

@@ -20,6 +20,9 @@ const { autoUpdater } = require("electron-updater");
 const { createLoggingService } = require("./services/loggingService");
 const { createDiagnosticsService } = require("./services/diagnosticsService");
 const { createTrayService } = require("./services/trayService");
+const { powerMonitor } = require("electron");
+const { createOwnerSession } = require("./security/ownerSession");
+const { createWebsiteServiceClient } = require("./websiteAccess/websiteServiceClient");
 
 
 function bootstrap() {
@@ -27,6 +30,13 @@ function bootstrap() {
   let splash;
   let appUpdateService;
   let trayService;
+  const ownerSession = createOwnerSession({
+    onExpire: () => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send("owner-session-invalidated");
+      }
+    },
+  });
 
   const getMainWindow = () => mainWindow;
 
@@ -40,6 +50,7 @@ function bootstrap() {
     };
   }
   const store = createGameStore(app);
+  const websiteServiceClient = createWebsiteServiceClient();
   process.on("uncaughtException", (error) => {
     logger.log("FATAL", "main", "Uncaught exception; shutting down", error);
     app.quit();
@@ -140,6 +151,8 @@ function bootstrap() {
     adminSocketService,
     logger,
     diagnosticsService,
+    ownerSession,
+    websiteServiceClient,
     hideMainWindow: () => trayService.hideLauncher(),
   });
 
@@ -177,6 +190,12 @@ function bootstrap() {
     mainWindow = createWindow({
       show: false,
     });
+    mainWindow.webContents.on("did-start-navigation", (_event, _url, _inPlace, isMainFrame) => {
+      if (isMainFrame) ownerSession.invalidate("navigation");
+    });
+    mainWindow.on("hide", () => ownerSession.invalidate("window-hidden"));
+    powerMonitor.on("lock-screen", () => ownerSession.invalidate("windows-lock"));
+    powerMonitor.on("suspend", () => ownerSession.invalidate("system-suspend"));
     mainWindow.webContents.on("render-process-gone", (_event, details) => logger.log("ERROR", "renderer", "Renderer process exited unexpectedly", details));
     mainWindow.webContents.on("did-fail-load", (_event, code, description, url, isMainFrame) => {
       if (isMainFrame) logger.log("ERROR", "renderer", "Page failed to load", { code, description, url });
