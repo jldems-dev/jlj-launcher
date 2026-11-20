@@ -558,10 +558,7 @@ async function toggleFavorite(gameId) {
 // ============================================================
 // AUTHENTICATION
 // ============================================================
-let loginInProgress = false;
-
 async function login() {
-  if (loginInProgress || State.isOwnerLoggedIn) return;
   const username = $("loginUsername")?.value.trim();
   const password = $("loginPassword")?.value.trim();
 
@@ -570,7 +567,6 @@ async function login() {
     return;
   }
 
-  loginInProgress = true;
   try {
     if (!window.electronAPI?.verifyOwner) throw new Error("Owner authentication is unavailable");
     const valid = await window.electronAPI.verifyOwner(username, password);
@@ -593,8 +589,6 @@ async function login() {
   } catch (error) {
     console.error("Login error:", error);
     showToast("Login failed", "error");
-  } finally {
-    loginInProgress = false;
   }
 }
 

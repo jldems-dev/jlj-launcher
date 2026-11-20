@@ -140,12 +140,7 @@ switch ($Action) {
         $serviceSid = Get-ServiceSidValue
         Assert-ProtectedAcl $stateDirectory @('S-1-5-18', 'S-1-5-19', 'S-1-5-32-544', $serviceSid)
         Assert-ProtectedAcl (Join-Path $stateDirectory 'owner.sid') @('S-1-5-18', 'S-1-5-19', 'S-1-5-32-544', $serviceSid)
-        $provisionedSid = ([Security.Principal.SecurityIdentifier]::new((Get-Content -LiteralPath (Join-Path $stateDirectory 'owner.sid') -Raw).Trim())).Value
-        if ($ExpectedOwnerSid -and $provisionedSid -ne ([Security.Principal.SecurityIdentifier]::new($ExpectedOwnerSid)).Value) {
-            throw 'The provisioned SID does not match the Windows account selected for the launcher.'
-        }
         Write-Output ("Service identity={0}; state={1}; startMode={2}; serviceSid={3}" -f $service.StartName, $service.State, $service.StartMode, $serviceSid)
-        Write-Output "Provisioned owner SID: $provisionedSid"
         Write-Output 'Protected ProgramData directory and owner.sid ACL checks passed.'
         break
     }

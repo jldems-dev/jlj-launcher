@@ -68,7 +68,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.invoke("db-change-password", currentPass, newPass),
   getWebsiteAccessStatus: () => ipcRenderer.invoke("website-access:get-status"),
   getWebsiteServiceStatus: () => ipcRenderer.invoke("website-access:service-status"),
-  requestWebsiteProtection: (enabled) => ipcRenderer.invoke("website-access:request-protection", enabled),
   getWebsiteServiceCapabilities: () => ipcRenderer.invoke("website-access:service-capabilities"),
   validateWebsiteServicePolicy: () => ipcRenderer.invoke("website-access:service-validate-policy"),
   syncWebsiteServicePolicy: () => ipcRenderer.invoke("website-access:service-sync-policy"),

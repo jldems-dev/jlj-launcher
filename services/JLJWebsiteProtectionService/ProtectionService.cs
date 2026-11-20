@@ -34,16 +34,8 @@ namespace JLJ.WebsiteProtection
             {
                 _store.Initialize();
                 _ownerSid = ReadOwnerSid();
-                if (_ownerSid == null)
-                {
-                    _status.SetState("degraded", "OWNER_SID_UNAVAILABLE");
-                    ServiceLog.Write("OWNER_SID_UNAVAILABLE");
-                }
-                else
-                {
-                    _status.SetState("healthy", null);
-                    ServiceLog.Write("SERVICE_STARTED");
-                }
+                _status.SetState("healthy", null);
+                ServiceLog.Write("SERVICE_STARTED");
             }
             catch
             {

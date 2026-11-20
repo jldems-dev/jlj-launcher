@@ -243,20 +243,18 @@
                 <h3 class="modal-title">Owner Login</h3>
                 <button class="modal-close" onclick="closeLoginModal()">✕</button>
             </div>
-            <form id="loginForm">
-                <div class="form-group">
-                    <label class="form-label">Username</label>
-                    <input type="text" class="form-input" placeholder="Enter username..." id="loginUsername">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Password</label>
-                    <input type="password" class="form-input" placeholder="Enter password..." id="loginPassword">
-                </div>
-                <button type="submit" class="btn btn-play btn-full" id="loginButton">
-                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
-                    Login
-                </button>
-            </form>
+            <div class="form-group">
+                <label class="form-label">Username</label>
+                <input type="text" class="form-input" placeholder="Enter username..." id="loginUsername">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Password</label>
+                <input type="password" class="form-input" placeholder="Enter password..." id="loginPassword">
+            </div>
+            <button class="btn btn-play btn-full" id="loginButton">
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                Login
+            </button>
         </div>
     </div>
 
@@ -338,41 +336,33 @@
         <div class="modal modal-wide">
             <div class="modal-header">
                 <h3 class="modal-title">Settings</h3>
-                <button class="modal-close" type="button" aria-label="Close Settings" onclick="closeOwnerSettings()">x</button>
+                <button class="modal-close" onclick="closeOwnerSettings()">x</button>
             </div>
-            <div class="settings-tabs" role="tablist" aria-label="Settings sections" id="ownerSettingsTabs">
-                <button class="settings-tab" type="button" role="tab" id="settingsGeneralTab" aria-controls="settingsGeneralPanel" aria-selected="true">General</button>
-                <button class="settings-tab" type="button" role="tab" id="settingsWebsiteTab" aria-controls="settingsWebsitePanel" aria-selected="false" tabindex="-1">Website Access</button>
-                <button class="settings-tab" type="button" role="tab" id="settingsPcTab" aria-controls="settingsPcPanel" aria-selected="false" tabindex="-1">PC Information</button>
-                <button class="settings-tab" type="button" role="tab" id="settingsDiagnosticsTab" aria-controls="settingsDiagnosticsPanel" aria-selected="false" tabindex="-1">Diagnostics</button>
-            </div>
-            <div class="settings-tab-content" id="ownerSettingsTabContent">
-                <section class="settings-panel" role="tabpanel" id="settingsGeneralPanel" aria-labelledby="settingsGeneralTab" tabindex="0">
-                    <div class="settings-section-header">
-                        <div class="settings-icon">
-                            <img src="assets/icons/globe.svg" alt="">
-                        </div>
-                        <div>
-                            <div class="settings-title">Socket.IO Server</div>
-                            <div class="settings-subtitle">Saved server URL used by the client connection</div>
-                        </div>
+            <div class="settings-panel">
+                <div class="settings-section-header">
+                    <div class="settings-icon">
+                        <img src="assets/icons/globe.svg" alt="">
                     </div>
-
-                    <div class="server-settings-row">
-                        <div class="form-group">
-                            <label class="form-label">Server URL</label>
-                            <input type="url" class="form-input" placeholder="https://example.com" id="serverUrlInput">
-                        </div>
-                        <div class="settings-actions server-settings-actions">
-                            <button class="btn btn-play" id="saveServerUrlButton">Save URL</button>
-                            <button class="btn btn-danger" id="deleteServerUrlButton">Delete URL</button>
-                        </div>
+                    <div>
+                        <div class="settings-title">Socket.IO Server</div>
+                        <div class="settings-subtitle">Saved server URL used by the client connection</div>
                     </div>
+                </div>
 
-                    <div class="server-url-status" id="serverUrlStatus">No server URL saved.</div>
-                </section>
+                <div class="server-settings-row">
+                    <div class="form-group">
+                        <label class="form-label">Server URL</label>
+                        <input type="url" class="form-input" placeholder="https://example.com" id="serverUrlInput">
+                    </div>
+                    <div class="settings-actions server-settings-actions">
+                        <button class="btn btn-play" id="saveServerUrlButton">Save URL</button>
+                        <button class="btn btn-danger" id="deleteServerUrlButton">Delete URL</button>
+                    </div>
+                </div>
 
-                <section class="settings-panel website-access-section" role="tabpanel" id="settingsWebsitePanel" aria-labelledby="settingsWebsiteTab" tabindex="0" hidden>
+                <div class="server-url-status" id="serverUrlStatus">No server URL saved.</div>
+
+                <section class="website-access-section" aria-labelledby="websiteAccessHeading">
                     <div class="settings-section-header">
                         <div class="settings-icon"><img src="assets/icons/globe.svg" alt=""></div>
                         <div>
@@ -380,22 +370,18 @@
                             <div class="settings-subtitle">Manage stored domain rules. This version does not change network traffic.</div>
                         </div>
                     </div>
+                    <div class="website-access-notice" role="status">Network enforcement is not implemented. No DNS service is installed, and no DNS activity is being collected.</div>
 
                     <div class="website-access-card">
                         <h4>Protection Status</h4>
                         <div class="website-access-status-grid" id="websiteAccessStatus" aria-live="polite">Loading status…</div>
-                        <button class="btn btn-play" type="button" id="enableWebsiteProtection" disabled aria-describedby="websiteProtectionReadiness">Enable Protection</button>
-                        <button class="btn btn-danger" type="button" id="disableWebsiteProtection" hidden>Disable Protection</button>
-                        <div class="website-access-feedback" id="websiteProtectionFeedback" aria-live="polite"></div>
-                        <div class="website-access-feedback" id="websiteProtectionReadiness" aria-live="polite"></div>
-                        <button class="btn" type="button" id="syncWebsiteServicePolicy">Sync rules to service</button>
-                        <div class="website-access-feedback" id="websitePolicySyncFeedback" aria-live="polite"></div>
                     </div>
 
                     <div class="website-access-card">
                         <h4>Protection Settings</h4>
-                        <p class="website-access-muted">The service receives a default-deny policy snapshot. These settings are stored locally.</p>
+                        <p class="website-access-muted">These settings are stored for a future service. They do not enable filtering in this version.</p>
                         <div class="website-access-settings-row">
+                            <label class="website-access-check"><input type="checkbox" id="websiteProtectionEnabled"> Protection configured as enabled</label>
                             <label class="form-group">Mode
                                 <select class="form-select" id="websiteProtectionMode" disabled><option value="monitoring">Monitoring</option><option value="enforcement" disabled>Enforcement (unavailable)</option></select>
                             </label>
@@ -455,98 +441,91 @@
                     </div>
                 </section>
 
-                <section class="settings-panel" role="tabpanel" id="settingsPcPanel" aria-labelledby="settingsPcTab" tabindex="0" hidden>
-                    <div class="settings-section-header">
-                        <div class="settings-icon">
-                            <img src="assets/icons/cpu.svg" alt="">
-                        </div>
-                        <div>
-                            <div class="settings-title">PC Information Management</div>
-                            <div class="settings-subtitle">Manual PC specifications shown on the PC information page</div>
-                        </div>
-                    </div>
+                <div class="settings-section-header">
+                    <div class="settings-icon"><img src="assets/icons/cpu.svg" alt=""></div>
+                    <div><div class="settings-title">Diagnostics</div><div class="settings-subtitle">Application health and recent technical errors. No reports are uploaded automatically.</div></div>
+                </div>
+                <div class="diagnostics-grid" id="diagnosticsHealth" aria-live="polite">Loading diagnostics…</div>
+                <div class="settings-actions">
+                    <button class="btn" type="button" id="openLogsButton">Open Logs Folder</button>
+                    <button class="btn btn-play" type="button" id="exportDiagnosticsButton">Export Diagnostics</button>
+                </div>
+                <div class="server-url-status" id="diagnosticsStatus" aria-live="polite"></div>
+                <div class="diagnostics-errors" id="diagnosticsErrors"></div>
 
-                    <input type="hidden" id="pcOriginalIp">
-
-                    <div class="pc-settings-grid">
-                        <div class="form-group">
-                            <label class="form-label">PC IP</label>
-                            <input type="text" class="form-input" placeholder="192.168.1.10" id="pcIp">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">PC Name</label>
-                            <input type="text" class="form-input" placeholder="PC1" id="pcNameInput">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Windows Version</label>
-                            <input type="text" class="form-input" placeholder="Windows 11 | 22H2" id="pcWindowsVersion">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">RAM</label>
-                            <input type="text" class="form-input" placeholder="16GB DDR4 3200MHz" id="pcRam">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">RAM Usage</label>
-                            <input type="text" class="form-input" placeholder="8GB used" id="pcRamUsage">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">CPU</label>
-                            <input type="text" class="form-input" placeholder="Ryzen 5 5600GT" id="pcCpu">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">GPU</label>
-                            <input type="text" class="form-input" placeholder="NVIDIA GeForce RTX 4080" id="pcGpu">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">VRAM</label>
-                            <input type="text" class="form-input" placeholder="16GB" id="pcVram">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Network Speed</label>
-                            <input type="text" class="form-input" placeholder="1Gbps / 100Mbps" id="pcNetworkSpeed">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Storage</label>
-                            <input type="text" class="form-input" placeholder="1TB NVMe SSD" id="pcStorage">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Motherboard</label>
-                            <input type="text" class="form-input" placeholder="B550M" id="pcMotherboard">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Monitor</label>
-                            <input type="text" class="form-input" placeholder="24-inch 165Hz" id="pcMonitor">
-                        </div>
-                        <div class="form-group full-width">
-                            <label class="form-label">Other PC Details</label>
-                            <textarea class="form-input pc-notes-input" placeholder="Keyboard, mouse, headset, notes..." id="pcNotes"></textarea>
-                        </div>
+                <div class="settings-section-header">
+                    <div class="settings-icon">
+                        <img src="assets/icons/cpu.svg" alt="">
                     </div>
-
-                    <div class="settings-actions">
-                        <button class="btn btn-play" id="savePcSpecButton">Save PC</button>
-                        <button class="btn" id="clearPcSpecButton">Clear Form</button>
+                    <div>
+                        <div class="settings-title">PC Information Management</div>
+                        <div class="settings-subtitle">Manual PC specifications shown on the PC information page</div>
                     </div>
+                </div>
 
-                    <section aria-labelledby="settingsSavedPcsHeading">
-                        <h4 class="settings-title" id="settingsSavedPcsHeading">Saved PCs</h4>
-                        <div class="pc-spec-list" id="pcSpecList"></div>
-                    </section>
-                </section>
+                <input type="hidden" id="pcOriginalIp">
 
-                <section class="settings-panel" role="tabpanel" id="settingsDiagnosticsPanel" aria-labelledby="settingsDiagnosticsTab" tabindex="0" hidden>
-                    <div class="settings-section-header">
-                        <div class="settings-icon"><img src="assets/icons/cpu.svg" alt=""></div>
-                        <div><div class="settings-title">Diagnostics</div><div class="settings-subtitle">Application health and recent technical errors. No reports are uploaded automatically.</div></div>
+                <div class="pc-settings-grid">
+                    <div class="form-group">
+                        <label class="form-label">PC IP</label>
+                        <input type="text" class="form-input" placeholder="192.168.1.10" id="pcIp">
                     </div>
-                    <div class="diagnostics-grid" id="diagnosticsHealth" aria-live="polite">Loading diagnostics…</div>
-                    <div class="settings-actions">
-                        <button class="btn" type="button" id="openLogsButton">Open Logs Folder</button>
-                        <button class="btn btn-play" type="button" id="exportDiagnosticsButton">Export Diagnostics</button>
+                    <div class="form-group">
+                        <label class="form-label">PC Name</label>
+                        <input type="text" class="form-input" placeholder="PC1" id="pcNameInput">
                     </div>
-                    <div class="server-url-status" id="diagnosticsStatus" aria-live="polite"></div>
-                    <div class="diagnostics-errors" id="diagnosticsErrors"></div>
-                </section>
+                    <div class="form-group">
+                        <label class="form-label">Windows Version</label>
+                        <input type="text" class="form-input" placeholder="Windows 11 | 22H2" id="pcWindowsVersion">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">RAM</label>
+                        <input type="text" class="form-input" placeholder="16GB DDR4 3200MHz" id="pcRam">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">RAM Usage</label>
+                        <input type="text" class="form-input" placeholder="8GB used" id="pcRamUsage">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">CPU</label>
+                        <input type="text" class="form-input" placeholder="Ryzen 5 5600GT" id="pcCpu">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">GPU</label>
+                        <input type="text" class="form-input" placeholder="NVIDIA GeForce RTX 4080" id="pcGpu">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">VRAM</label>
+                        <input type="text" class="form-input" placeholder="16GB" id="pcVram">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Network Speed</label>
+                        <input type="text" class="form-input" placeholder="1Gbps / 100Mbps" id="pcNetworkSpeed">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Storage</label>
+                        <input type="text" class="form-input" placeholder="1TB NVMe SSD" id="pcStorage">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Motherboard</label>
+                        <input type="text" class="form-input" placeholder="B550M" id="pcMotherboard">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Monitor</label>
+                        <input type="text" class="form-input" placeholder="24-inch 165Hz" id="pcMonitor">
+                    </div>
+                    <div class="form-group full-width">
+                        <label class="form-label">Other PC Details</label>
+                        <textarea class="form-input pc-notes-input" placeholder="Keyboard, mouse, headset, notes..." id="pcNotes"></textarea>
+                    </div>
+                </div>
+
+                <div class="settings-actions">
+                    <button class="btn btn-play" id="savePcSpecButton">Save PC</button>
+                    <button class="btn" id="clearPcSpecButton">Clear Form</button>
+                </div>
+
+                <div class="pc-spec-list" id="pcSpecList"></div>
             </div>
         </div>
     </div>
