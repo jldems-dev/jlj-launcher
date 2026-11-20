@@ -9,12 +9,6 @@ document.addEventListener("DOMContentLoaded", () => {
   bindWindowControls();
   bindCrudControls();
   bindOwnerSettings();
-  window.electronAPI?.onOwnerSessionInvalidated?.(() => {
-    if (State.isOwnerLoggedIn) {
-      clearOwnerUiState();
-      showToast("Owner session ended. Sign in again to continue.", "info");
-    }
-  });
   initSidebarClock();
   loadOwnerSettingsDisplay();
   loadPcSpecsDisplay();
