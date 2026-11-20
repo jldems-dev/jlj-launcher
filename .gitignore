@@ -1,6 +1,9 @@
 /node_modules
 /dist
 database/*.db
-.env 
-*.txt 
-*.md
+.env
+install.txt
+install.txt
+*.txt
+install.txt
+RELEASE_AUDIT.md
