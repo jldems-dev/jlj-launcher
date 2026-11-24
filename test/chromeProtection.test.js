@@ -103,7 +103,9 @@ test("audits before enforcement, detects policy drift and restores the backup", 
   skip: process.platform !== "win32",
 }, async () => {
   const source = readFileSync(require.resolve("../src/main/services/chromeProtection.ps1"), "utf8");
-  const definitions = source.slice(0, source.indexOf("try {\n    $identity"));
+  const entryPoint = source.search(/^try \{\r?\n    \$identity =/m);
+  assert.ok(entryPoint >= 0, "Chrome Protection entry point was not found");
+  const definitions = source.slice(0, entryPoint);
   const fixture = String.raw`
 $baseline = '<AppLockerPolicy Version="1"/>'
 $script:policyXml = $baseline

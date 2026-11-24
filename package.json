@@ -1,6 +1,6 @@
 {
   "name": "jljgaminghouse",
-  "version": "1.0.29",
+  "version": "1.0.30",
   "description": "",
   "main": "main.js",
   "scripts": {
@@ -8,6 +8,7 @@
     "dev": "electronmon .",
     "test": "node --test",
     "validate:release": "node scripts/validate-release.js --check-project --root .",
+    "release": "node scripts/release.js",
     "postinstall": "npm run rebuild:native",
     "rebuild:native": "electron-builder install-app-deps",
     "build": "electron-builder"

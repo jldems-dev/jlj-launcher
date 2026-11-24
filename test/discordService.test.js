@@ -5,8 +5,8 @@ const os = require("node:os");
 const path = require("node:path");
 const { createDiscordService, downloadInstaller } = require("../src/main/services/discordService");
 
-async function fixture(t) {
-  const temp = await fs.mkdtemp(path.join(os.tmpdir(), "jlj-discord-test-"));
+async function fixture(t, prefix = "jlj-discord-test-") {
+  const temp = await fs.mkdtemp(path.join(os.tmpdir(), prefix));
   t.after(() => fs.rm(temp, { recursive: true, force: true }));
   const root = path.join(temp, "Discord");
   async function addVersion(version) {
@@ -19,7 +19,7 @@ async function fixture(t) {
 }
 
 test("detects Discord, launches its updater, and observes a newer installed version", async (t) => {
-  const setup = await fixture(t);
+  const setup = await fixture(t, "jlj Discord test-");
   const calls = [];
   const service = createDiscordService({
     ...setup,
@@ -36,7 +36,8 @@ test("detects Discord, launches its updater, and observes a newer installed vers
   assert.equal((await service.status()).version, "1.0.9");
   assert.equal((await service.status()).updaterRunning, true);
   assert.equal((await service.launch()).version, "1.0.10");
-  assert.deepEqual(calls, ["Update.exe", "Discord.exe", [path.join(setup.root, "Update.exe"), ["--processStart", "Discord.exe"]]]);
+  const updater = path.join(await fs.realpath(setup.root), "Update.exe");
+  assert.deepEqual(calls, ["Update.exe", "Discord.exe", [updater, ["--processStart", "Discord.exe"]]]);
 });
 
 test("installs and repairs through the verified setup without changing existing data", async (t) => {
