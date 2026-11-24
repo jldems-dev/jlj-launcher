@@ -1,10 +1,21 @@
 const { exec } = require("child_process");
 const util = require("util");
 const path = require("path");
-const { app, shell } = require('electron'); 
+const { pathToFileURL } = require("node:url");
+const { app, dialog, shell } = require('electron');
 const systemActivityService = require("../services/systemActivityService");
+const { manageDriveAccessPolicy } = require("../services/driveAccessPolicyService");
+const { createChromeProtection, validateRequest } = require("../services/chromeProtectionService");
+const { createDiscordService } = require("../services/discordService");
 
 const execAsync = util.promisify(exec);
+const allowedExternalUrls = new Set([
+  "https://facebook.com",
+  "https://youtube.com",
+  "https://tiktok.com",
+  "https://www.instagram.com/",
+  "https://google.com",
+]);
 
 function registerIpcHandlers({
   ipcMain,
@@ -21,19 +32,33 @@ function registerIpcHandlers({
   popupWindowService,
   adminSocketService,
   logger,
-  diagnosticsService,
 }) {
+  const discord = createDiscordService();
+  const launcherUrl = pathToFileURL(path.join(app.getAppPath(), "index.html")).href;
+  const chrome = createChromeProtection();
+  const trackedOwnerWindows = new WeakSet();
+  let ownerFrame;
+  let loginAttempt = 0;
+  function launcherRequest(operation) {
+    return (event, ...args) => {
+      const contents = getMainWindow()?.webContents;
+      if (!contents || event.sender !== contents || event.senderFrame !== contents.mainFrame || event.senderFrame?.url !== launcherUrl) {
+        throw new Error("Requests are restricted to the launcher window.");
+      }
+      return operation(contents, event.senderFrame, ...args);
+    };
+  }
+
+  ipcMain.handle("discord:status", launcherRequest(() => discord.status()));
+  ipcMain.handle("discord:launch", launcherRequest(() => discord.launch()));
+  ipcMain.handle("discord:install", launcherRequest((contents) => discord.install((progress) => {
+    if (!contents.isDestroyed()) contents.send("discord:progress", progress);
+  })));
+
   ipcMain.handle("app-update:get-state", () => appUpdateService.getState());
   ipcMain.handle("app-update:check", () => appUpdateService.checkForUpdates());
   ipcMain.handle("app-update:update", () => appUpdateService.updateApp());
 
-  ipcMain.handle("diagnostics:get", () => diagnosticsService.collect());
-  ipcMain.handle("diagnostics:export", () => diagnosticsService.exportReport());
-  ipcMain.handle("diagnostics:open-logs", async () => {
-    const error = await shell.openPath(logger.logDir);
-    if (error) throw new Error(error);
-    return { success: true };
-  });
   ipcMain.handle("check-for-updates", () => appUpdateService.checkForUpdates());
 
   ipcMain.handle("get-app-version", () => {
@@ -84,9 +109,35 @@ function registerIpcHandlers({
     return store.updateGame(id, updates);
   });
 
-  ipcMain.handle("db-verify-owner", (event, username, password) => {
-    return store.verifyOwner(username, password);
-  });
+  ipcMain.handle("db-verify-owner", launcherRequest(async (contents, frame, username, password) => {
+    const attempt = ++loginAttempt;
+    ownerFrame = undefined;
+    if (!trackedOwnerWindows.has(contents)) {
+      trackedOwnerWindows.add(contents);
+      contents.on("did-start-navigation", (event, url, isInPlace, isMainFrame) => {
+        if (isMainFrame && !isInPlace) {
+          ownerFrame = undefined;
+          loginAttempt++;
+        }
+      });
+    }
+    const valid = await store.verifyOwner(username, password);
+    if (!valid || attempt !== loginAttempt || contents.isDestroyed() || contents.mainFrame !== frame || frame.url !== launcherUrl) return false;
+    ownerFrame = frame;
+    return true;
+  }));
+
+  ipcMain.handle("owner:logout", launcherRequest(() => {
+    ownerFrame = undefined;
+    loginAttempt++;
+  }));
+
+  function ownerRequest(operation) {
+    return launcherRequest((contents, frame, ...args) => {
+      if (frame !== ownerFrame) throw new Error("Owner login required.");
+      return operation(...args);
+    });
+  }
 
   ipcMain.handle("db-change-password", (event, currentPass, newPass) => {
     return store.changePassword(currentPass, newPass);
@@ -151,7 +202,7 @@ function registerIpcHandlers({
   });
 
   ipcMain.on("open-external", (event, url) => {
-    shell.openExternal(url);
+    if (allowedExternalUrls.has(url)) shell.openExternal(url);
   });
 
   ipcMain.handle("open-multiple-roblox-instances", async () => {
@@ -209,26 +260,42 @@ function registerIpcHandlers({
     popupWindowService.showPopup(data);
   });
 
-  // Control Panel
-  ipcMain.handle("cp:lock", async () => {
-    return cpService.lockControlPanel();
-  });
+  ipcMain.handle("cp:lock", ownerRequest(() => cpService.lockControlPanel()));
+  ipcMain.handle("cp:unlock", ownerRequest(() => cpService.unlockControlPanel()));
+  ipcMain.handle("cp:status", ownerRequest(() => cpService.getStatus()));
+  ipcMain.handle("cp:open-control-panel", ownerRequest(() => cpService.openWindowsControlPanel()));
+  ipcMain.handle("cp:drive-access", ownerRequest(manageDriveAccessPolicy));
+  ipcMain.handle("cp:open-gpedit", ownerRequest(() => cpService.openLocalGroupPolicyEditor()));
+  let confirmingChrome = false;
+  ipcMain.handle("chrome:protection", launcherRequest(async (contents, frame, action, options) => {
+    if (frame !== ownerFrame) throw new Error("Owner login required.");
+    const request = validateRequest(action, options);
+    if (confirmingChrome) throw new Error("A Chrome protection confirmation is already open.");
+    if (action !== "enable") return chrome.run(action, request);
 
-  ipcMain.handle("cp:unlock", async () => {
-    return cpService.unlockControlPanel();
-  });
-
-  ipcMain.handle("cp:status", async () => {
-    return cpService.getStatus();
-  });
-
-  ipcMain.handle("cp:open-control-panel", async () => {
-    return cpService.openWindowsControlPanel();
-  });
-
-  ipcMain.handle("cp:open-gpedit", async () => {
-    return cpService.openLocalGroupPolicyEditor();
-  });
+    const attempt = loginAttempt;
+    confirmingChrome = true;
+    try {
+      const { response } = await dialog.showMessageBox(getMainWindow(), {
+        type: "warning",
+        title: "Enable Chrome Protection",
+        message: "Enforce the audited AppLocker rules?",
+        detail: "Confirm that you reviewed the audit events and tested the apps you need. The restrictions apply to everyone using this Windows account.",
+        buttons: ["Cancel", "Enable Protection"],
+        defaultId: 0,
+        cancelId: 0,
+        noLink: true,
+      });
+      if (response !== 1) return { cancelled: true };
+      if (attempt !== loginAttempt || frame !== ownerFrame || contents.isDestroyed() ||
+          contents.mainFrame !== frame || frame.url !== launcherUrl) {
+        throw new Error("Owner login required.");
+      }
+      return chrome.run(action, request);
+    } finally {
+      confirmingChrome = false;
+    }
+  }));
 }
 
 module.exports = { registerIpcHandlers };

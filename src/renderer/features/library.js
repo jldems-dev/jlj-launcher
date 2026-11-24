@@ -558,7 +558,11 @@ async function toggleFavorite(gameId) {
 // ============================================================
 // AUTHENTICATION
 // ============================================================
+let loginInProgress = false;
+
 async function login() {
+  if (loginInProgress || State.isOwnerLoggedIn) return;
+
   const username = $("loginUsername")?.value.trim();
   const password = $("loginPassword")?.value.trim();
 
@@ -567,6 +571,7 @@ async function login() {
     return;
   }
 
+  loginInProgress = true;
   try {
     const valid = window.electronAPI?.verifyOwner
       ? await window.electronAPI.verifyOwner(username, password)
@@ -579,8 +584,6 @@ async function login() {
       $("ownerBadge").style.display = "inline-flex";
       $("addGameNav").style.display = "flex";
       $("ownerSettingsNav").style.display = "flex";
-      $("addControlPanel").style.display = "flex";
-      $("openGpeditNav").style.display = "flex";
       loadOwnerSettingsDisplay();
       showToast("Owner logged in successfully", "success");
       applyFilters();
@@ -590,6 +593,8 @@ async function login() {
   } catch (error) {
     console.error("Login error:", error);
     showToast("Login failed", "error");
+  } finally {
+    loginInProgress = false;
   }
 }
 
@@ -611,12 +616,12 @@ function logout() {
   if (State.currentlyPlaying) stopPlaying();
 
   State.isOwnerLoggedIn = false;
+  closeOwnerSettings();
+  window.electronAPI?.endOwnerSession().catch(console.error);
   $("loginText").textContent = "Owner Login";
   $("ownerBadge").style.display = "none";
   $("addGameNav").style.display = "none";
   $("ownerSettingsNav").style.display = "none";
-  $("addControlPanel").style.display = "none";
-  $("openGpeditNav").style.display = "none";
   closeOwnerSettings();
   applyFilters();
   showToast("Logged out", "info");

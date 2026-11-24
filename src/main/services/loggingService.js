@@ -59,22 +59,7 @@ function createLoggingService(app, options = {}) {
     } catch {}
   }
 
-  function listLogFiles() {
-    try {
-      const cutoff = Date.now() - retentionDays * 86400000;
-      return fs.readdirSync(logDir).filter((name) => /^app-\d{4}-\d{2}-\d{2}\.log(?:\.\d+)?$/.test(name)).map((name) => path.join(logDir, name)).filter((file) => {
-        try { if (fs.statSync(file).mtimeMs < cutoff) { fs.unlinkSync(file); return false; } return true; } catch { return false; }
-      }).sort();
-    } catch { return []; }
-  }
-
-  function getRecentErrors(limit = 50) {
-    return listLogFiles().reverse().flatMap((file) => {
-      try { return fs.readFileSync(file, "utf8").split(/\r?\n/).filter(Boolean).map((line) => JSON.parse(line)).filter((entry) => ["ERROR", "FATAL"].includes(entry.level)); } catch { return []; }
-    }).slice(-limit).reverse();
-  }
-
-  return { log, logDir, listLogFiles, getRecentErrors };
+  return { log };
 }
 
 module.exports = { createLoggingService, sanitize };

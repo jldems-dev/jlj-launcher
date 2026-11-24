@@ -66,6 +66,10 @@
                     <svg class="nav-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/></svg>
                     TikTok
                 </div>
+                <div class="nav-item" onclick="openExternal('https://www.instagram.com/')">
+                    <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>
+                    Instagram
+                </div>
             </div> 
             <div class="nav-section">
                 <div class="nav-header">Tools</div>
@@ -80,23 +84,9 @@
                     </svg>
                     Multiple Roblox
                 </div>
-                <div class="nav-item" id="addControlPanel" style="display: none;" onclick="openCPModal()" >
-                    <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round"
-                            d="M4 6h16M6 12h12M8 18h8"/>
-                        <circle cx="9" cy="6" r="2"/>
-                        <circle cx="15" cy="12" r="2"/>
-                        <circle cx="12" cy="18" r="2"/>
-                    </svg>
-                    Control Panel
-                    <span class="tag" id="cpNavBadge" style="display: none; margin-left: auto; font-size: 10px; padding: 2px 8px;"></span>
-                </div>
-                <div class="nav-item" id="openGpeditNav" style="display: none;" onclick="openLocalGroupPolicyEditor()" >
-                    <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 5h16v14H4z"/>
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M8 9h8M8 13h5"/>
-                    </svg>
-                    Local Group Policy
+                <div class="nav-item" onclick="openDiscordTools()">
+                    <img class="ind-icon" src="assets/icons/discord.svg" alt="">
+                    Discord
                 </div>
             </div>
             <div class="nav-section">
@@ -237,11 +227,27 @@
         <button class="stop-btn" onclick="stopPlaying()">Stop</button>
     </div>
 
+    <div class="modal-overlay" id="discordModal">
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="discordTitle">
+            <div class="modal-header">
+                <h3 class="modal-title" id="discordTitle">Discord</h3>
+                <button class="modal-close" type="button" aria-label="Close Discord tools" onclick="closeDiscordTools()">✕</button>
+            </div>
+            <p id="discordVersion"></p>
+            <p id="discordStatus" class="server-url-status" role="status"></p>
+            <div class="settings-actions">
+                <button class="btn btn-play" id="discordOpenButton" type="button" hidden>Open Discord</button>
+                <button class="btn" id="discordRefreshButton" type="button">Refresh Status</button>
+                <button class="btn" id="discordInstallButton" type="button" hidden>Install Discord</button>
+            </div>
+        </div>
+    </div>
+
     <div class="modal-overlay" id="loginModal">
-        <div class="modal">
+        <form class="modal" id="loginForm">
             <div class="modal-header">
                 <h3 class="modal-title">Owner Login</h3>
-                <button class="modal-close" onclick="closeLoginModal()">✕</button>
+                <button type="button" class="modal-close" onclick="closeLoginModal()">✕</button>
             </div>
             <div class="form-group">
                 <label class="form-label">Username</label>
@@ -251,11 +257,11 @@
                 <label class="form-label">Password</label>
                 <input type="password" class="form-input" placeholder="Enter password..." id="loginPassword">
             </div>
-            <button class="btn btn-play btn-full" id="loginButton">
+            <button type="submit" class="btn btn-play btn-full" id="loginButton">
                 <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
                 Login
             </button>
-        </div>
+        </form>
     </div>
 
     <div class="modal-overlay" id="addGameModal">
@@ -338,7 +344,13 @@
                 <h3 class="modal-title">Settings</h3>
                 <button class="modal-close" onclick="closeOwnerSettings()">x</button>
             </div>
-            <div class="settings-panel">
+            <div class="settings-tabs" role="tablist" aria-label="Settings">
+                <button type="button" role="tab" id="settings-tab-general" aria-controls="settings-general" aria-selected="true">General</button>
+                <button type="button" role="tab" id="settings-tab-control" aria-controls="settings-control" aria-selected="false" tabindex="-1">Control Panel</button>
+                <button type="button" role="tab" id="settings-tab-policy" aria-controls="settings-policy" aria-selected="false" tabindex="-1">Local Group Policy</button>
+                <button type="button" role="tab" id="settings-tab-chrome" aria-controls="settings-chrome" aria-selected="false" tabindex="-1">Chrome Protection</button>
+            </div>
+            <div class="settings-panel" id="settings-general" role="tabpanel" aria-labelledby="settings-tab-general">
                 <div class="settings-section-header">
                     <div class="settings-icon">
                         <img src="assets/icons/globe.svg" alt="">
@@ -361,18 +373,6 @@
                 </div>
 
                 <div class="server-url-status" id="serverUrlStatus">No server URL saved.</div>
-
-                <div class="settings-section-header">
-                    <div class="settings-icon"><img src="assets/icons/cpu.svg" alt=""></div>
-                    <div><div class="settings-title">Diagnostics</div><div class="settings-subtitle">Application health and recent technical errors. No reports are uploaded automatically.</div></div>
-                </div>
-                <div class="diagnostics-grid" id="diagnosticsHealth" aria-live="polite">Loading diagnostics…</div>
-                <div class="settings-actions">
-                    <button class="btn" type="button" id="openLogsButton">Open Logs Folder</button>
-                    <button class="btn btn-play" type="button" id="exportDiagnosticsButton">Export Diagnostics</button>
-                </div>
-                <div class="server-url-status" id="diagnosticsStatus" aria-live="polite"></div>
-                <div class="diagnostics-errors" id="diagnosticsErrors"></div>
 
                 <div class="settings-section-header">
                     <div class="settings-icon">
@@ -447,6 +447,121 @@
                 </div>
 
                 <div class="pc-spec-list" id="pcSpecList"></div>
+            </div>
+            <div id="settings-control" role="tabpanel" aria-labelledby="settings-tab-control" hidden>
+                <!-- Status Card -->
+                <div class="tool-status-card" id="cpStatusCard">
+                    <div class="tool-status-icon-wrap" id="cpStatusIconWrap">
+                        <svg width="32" height="32" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+                            <path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                            <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                        </svg>
+                    </div>
+                    <div class="tool-status-details">
+                        <div class="tool-status-title" id="cpStatusTitle">Control Panel Unlocked</div>
+                        <div class="tool-status-tags">
+                            <span class="tag" id="cpStatusTag">Accessible</span>
+                            <span class="tag" id="cpStatusTag2">Full Access</span>
+                        </div>
+                        <div class="tool-status-desc" id="cpStatusDesc">Users can open Control Panel and Settings</div>
+                    </div>
+                </div>
+
+                <!-- Action Panel -->
+                <div class="tool-presets-panel">
+                    <div class="host-room-header" style="margin-top: 0;">
+                        <div>
+                            <h3>Access Control</h3>
+                            <p>Toggle Control Panel restriction</p>
+                        </div>
+                    </div>
+
+                    <div class="tool-form-grid" style="grid-template-columns: 1fr 1fr;">
+                        <div class="tool-preset-box" id="cpPresetLock" onclick="lockControlPanel()">
+                            <div class="tool-preset-value">
+                                <svg width="28" height="28" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+                                    <path d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/>
+                                </svg>
+                            </div>
+                            <div class="tool-preset-label" style="margin-top: 8px;">Lock</div>
+                            <div class="tool-preset-hint">Block Control Panel</div>
+                        </div>
+                        <div class="tool-preset-box" id="cpPresetUnlock" onclick="unlockControlPanel()">
+                            <div class="tool-preset-value">
+                                <svg width="28" height="28" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+                                    <path d="M13.5 10.5V6.75a4.5 4.5 0 119 0v3.75M3.75 21.75h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H3.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/>
+                                </svg>
+                            </div>
+                            <div class="tool-preset-label" style="margin-top: 8px;">Unlock</div>
+                            <div class="tool-preset-hint">Allow Control Panel</div>
+                        </div>
+                    </div>
+
+                    <button class="btn btn-danger btn-full" id="cpDisableBtn" onclick="unlockControlPanel()" style="display: none; margin-top: 16px;">
+                        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                            <path d="M13.5 10.5V6.75a4.5 4.5 0 119 0v3.75M3.75 21.75h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H3.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/>
+                        </svg>
+                        Unlock Control Panel
+                    </button>
+                    <button class="btn btn-play btn-full" id="cpOpenBtn" onclick="openWindowsControlPanel()" style="margin-top: 12px;">
+                        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M6 12h12M8 18h8"/>
+                            <circle cx="9" cy="6" r="2"/>
+                            <circle cx="15" cy="12" r="2"/>
+                            <circle cx="12" cy="18" r="2"/>
+                        </svg>
+                        Open Windows Control Panel
+                    </button>
+                </div>
+            </div>
+            <div id="settings-policy" role="tabpanel" aria-labelledby="settings-tab-policy" hidden>
+                <section class="tool-presets-panel drive-access-policy" aria-labelledby="driveAccessTitle">
+                    <h4 id="driveAccessTitle">Prevent access to drives from My Computer</h4>
+                    <p>This policy applies to everyone using the current Windows account, including the owner. A local administrator can reverse it.</p>
+                    <div id="driveAccessSelection" hidden>
+                        <label for="driveAccessMask">Drives to restrict</label>
+                        <select id="driveAccessMask" class="form-input">
+                            <option value="">Select drives</option>
+                            <option value="3">A: and B:</option>
+                            <option value="4">C:</option>
+                            <option value="8">D:</option>
+                            <option value="7">A:, B:, and C:</option>
+                            <option value="15">A:, B:, C:, and D:</option>
+                            <option value="67108863">All drives</option>
+                            <option value="0">Do not restrict drives</option>
+                        </select>
+                    </div>
+                    <div id="driveAccessStatus" role="status">Refresh to check the current Windows account?s policy. Windows may prompt for administrator approval.</div>
+                    <div class="settings-actions">
+                        <button class="btn" type="button" id="driveAccessRefresh">Refresh Status</button>
+                        <button class="btn btn-play" type="button" id="driveAccessEnable" disabled>Enable</button>
+                        <button class="btn btn-danger" type="button" id="driveAccessDisable" disabled>Disable</button>
+                        <button class="btn" type="button" id="driveAccessRollback" disabled>Roll Back Last Change</button>
+                    </div>
+                </section>
+                <div class="tool-presets-panel">
+                    <button class="btn btn-play" onclick="openLocalGroupPolicyEditor()">Open Local Group Policy Editor</button>
+                </div>
+            </div>
+            <div id="settings-chrome" role="tabpanel" aria-labelledby="settings-tab-chrome" hidden>
+                <div class="tool-presets-panel chrome-protection">
+                    <strong id="chromeStatus" role="status">Checking Windows policy?</strong>
+                    <div id="chromeDetail"></div>
+                    <div>Last policy synchronization <span id="chromeSync">Never</span></div>
+                    <div>Detected Google Chrome files</div>
+                    <ul id="chromePaths"></ul>
+                    <label for="chromeSample">Additional Chrome file path</label>
+                    <input id="chromeSample" class="form-input" maxlength="1024" placeholder="Optional installer or copied executable">
+                    <label><input type="checkbox" id="chromeInstall"> Block Chrome installation</label>
+                    <label><input type="checkbox" id="chromeExecution" checked> Block existing Chrome execution</label>
+                    <label><input type="checkbox" id="chromePortable" checked> Block portable Chrome</label>
+                    <div class="settings-actions">
+                        <button class="btn" id="chromeRefresh">Refresh Status</button>
+                        <button class="btn btn-play" id="chromeAudit">Start Audit</button>
+                        <button class="btn btn-play" id="chromeEnable" disabled>Enable Protection</button>
+                        <button class="btn btn-danger" id="chromeDisable" disabled>Disable Protection</button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -543,84 +658,6 @@
             </div>
         </div>
     </div>
-    <!-- Control Panel Modal --> 
-    <div class="modal-overlay" id="cpModal">
-        <div class="modal" style="max-width: 480px;">
-            <div class="modal-header">
-                <div>
-                    <h3 class="modal-title">Control Panel Lock</h3>
-                    <p style="font-size: 13px; color: var(--text-muted); margin-top: 4px;">Restrict access to Windows Control Panel</p>
-                </div>
-                <button class="modal-close" onclick="closeCpModal()">✕</button>
-            </div>
-
-            <!-- Status Card -->
-            <div class="tool-status-card" id="cpStatusCard">
-                <div class="tool-status-icon-wrap" id="cpStatusIconWrap">
-                    <svg width="32" height="32" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-                        <path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
-                        <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                    </svg>
-                </div>
-                <div class="tool-status-details">
-                    <div class="tool-status-title" id="cpStatusTitle">Control Panel Unlocked</div>
-                    <div class="tool-status-tags">
-                        <span class="tag" id="cpStatusTag">Accessible</span>
-                        <span class="tag" id="cpStatusTag2">Full Access</span>
-                    </div>
-                    <div class="tool-status-desc" id="cpStatusDesc">Users can open Control Panel and Settings</div>
-                </div>
-            </div>
-
-            <!-- Action Panel -->
-            <div class="tool-presets-panel">
-                <div class="host-room-header" style="margin-top: 0;">
-                    <div>
-                        <h3>Access Control</h3>
-                        <p>Toggle Control Panel restriction</p>
-                    </div>
-                </div>
-
-                <div class="tool-form-grid" style="grid-template-columns: 1fr 1fr;">
-                    <div class="tool-preset-box" id="cpPresetLock" onclick="lockControlPanel()">
-                        <div class="tool-preset-value">
-                            <svg width="28" height="28" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-                                <path d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/>
-                            </svg>
-                        </div>
-                        <div class="tool-preset-label" style="margin-top: 8px;">Lock</div>
-                        <div class="tool-preset-hint">Block Control Panel</div>
-                    </div>
-                    <div class="tool-preset-box" id="cpPresetUnlock" onclick="unlockControlPanel()">
-                        <div class="tool-preset-value">
-                            <svg width="28" height="28" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-                                <path d="M13.5 10.5V6.75a4.5 4.5 0 119 0v3.75M3.75 21.75h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H3.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/>
-                            </svg>
-                        </div>
-                        <div class="tool-preset-label" style="margin-top: 8px;">Unlock</div>
-                        <div class="tool-preset-hint">Allow Control Panel</div>
-                    </div>
-                </div>
-
-                <button class="btn btn-danger btn-full" id="cpDisableBtn" onclick="unlockControlPanel()" style="display: none; margin-top: 16px;">
-                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-                        <path d="M13.5 10.5V6.75a4.5 4.5 0 119 0v3.75M3.75 21.75h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H3.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/>
-                    </svg>
-                    Unlock Control Panel
-                </button>
-                <button class="btn btn-play btn-full" id="cpOpenBtn" onclick="openWindowsControlPanel()" style="margin-top: 12px;">
-                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M6 12h12M8 18h8"/>
-                        <circle cx="9" cy="6" r="2"/>
-                        <circle cx="15" cy="12" r="2"/>
-                        <circle cx="12" cy="18" r="2"/>
-                    </svg>
-                    Open Windows Control Panel
-                </button>
-            </div>
-        </div>
-    </div>
-
     <div id="updatePanel" class="update-panel hidden">
         <div class="update-box">
             <div class="update-title">Updating Application</div>
@@ -659,6 +696,9 @@
     <script src="src/renderer/shared/clock.js"></script>
     <script src="src/renderer/features/ownerSettings.js"></script>
     <script src="src/renderer/features/controlPanel.js"></script>
+    <script src="src/renderer/features/chromeProtection.js"></script>
+    <script src="src/renderer/features/driveAccessPolicy.js"></script>
+    <script src="src/renderer/features/discord.js"></script>
     <script src="src/renderer/core/init.js"></script>
 </body>
 </html>

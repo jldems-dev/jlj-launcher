@@ -2221,23 +2221,61 @@ body {
     height: 18px;
     object-fit: contain;
 }
-.diagnostics-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 10px;
-  margin: 14px 0;
+
+#discordModal [hidden] {
+    display: none;
 }
-.diagnostics-grid > div {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 12px 14px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.025);
-  color: #a6a6a6;
-  font-size: 12px;
+
+.settings-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 16px;
+    border-bottom: 1px solid var(--border);
 }
-.diagnostics-grid strong { color: #f0f0f0; font-size: 13px; }
-.diagnostics-errors { max-height: 180px; overflow: auto; margin: 12px 0; color: #aaa; font-size: 12px; }
-.diagnostics-errors > div { padding: 7px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.06); }
+
+.settings-tabs button {
+    padding: 8px 10px;
+    background: transparent;
+    color: var(--text-muted);
+    border: 0;
+    border-bottom: 2px solid transparent;
+    font: inherit;
+    cursor: pointer;
+}
+
+.settings-tabs button[aria-selected="true"] {
+    color: var(--text-primary);
+    border-bottom-color: currentColor;
+}
+
+#ownerSettingsModal [role="tabpanel"][hidden] {
+    display: none;
+}
+
+.chrome-protection {
+    display: grid;
+    gap: 10px;
+    overflow-wrap: anywhere;
+}
+
+.chrome-protection ul {
+    margin: 0;
+    padding-left: 20px;
+    max-height: 8em;
+    overflow: auto;
+}
+
+.chrome-protection .settings-actions {
+    flex-wrap: wrap;
+}
+
+.drive-access-policy {
+    display: grid;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.drive-access-policy .settings-actions {
+    flex-wrap: wrap;
+}

@@ -19,9 +19,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.on("app-update-status", (_, data) => cb(data)),
   onAppUpdateProgress: (cb) =>
     ipcRenderer.on("app-update-progress", (_, data) => cb(data)),
-  getDiagnostics: () => ipcRenderer.invoke("diagnostics:get"),
-  exportDiagnostics: () => ipcRenderer.invoke("diagnostics:export"),
-  openLogsFolder: () => ipcRenderer.invoke("diagnostics:open-logs"),
   reportError: (message, details) => ipcRenderer.send("renderer-log", { level: "ERROR", message, details }),
   getSystemIdleState: () => ipcRenderer.invoke("get-system-idle-state"),
   onSystemIdleState: (callback) =>
@@ -80,11 +77,20 @@ contextBridge.exposeInMainWorld("electronAPI", {
   openExternal: (url) => ipcRenderer.send("open-external", url),
   openMultipleRobloxInstances: () =>
     ipcRenderer.invoke("open-multiple-roblox-instances"),
+  getDiscordStatus: () => ipcRenderer.invoke("discord:status"),
+  launchDiscord: () => ipcRenderer.invoke("discord:launch"),
+  installDiscord: () => ipcRenderer.invoke("discord:install"),
+  onDiscordProgress: (callback) => {
+    ipcRenderer.on("discord:progress", (_event, progress) => callback(progress));
+  },
   onInstallProgress: (callback) =>
     ipcRenderer.on("install-progress", (event, data) => callback(data)),
   lockControlPanel: () => ipcRenderer.invoke("cp:lock"),
   unlockControlPanel: () => ipcRenderer.invoke("cp:unlock"),
+  endOwnerSession: () => ipcRenderer.invoke("owner:logout"),
+  chromeProtection: (action, options) => ipcRenderer.invoke("chrome:protection", action, options),
   getCpStatus: () => ipcRenderer.invoke("cp:status"),
   openWindowsControlPanel: () => ipcRenderer.invoke("cp:open-control-panel"),
+  driveAccessPolicy: (action, initialMask) => ipcRenderer.invoke("cp:drive-access", action, initialMask),
   openLocalGroupPolicyEditor: () => ipcRenderer.invoke("cp:open-gpedit"),
 });

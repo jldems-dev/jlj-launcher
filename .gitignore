@@ -2,8 +2,5 @@
 /dist
 database/*.db
 .env
-install.txt
-install.txt
 *.txt
-install.txt
-RELEASE_AUDIT.md
+*.md

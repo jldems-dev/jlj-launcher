@@ -1,18 +1,3 @@
-﻿// â”€â”€â”€ Control Panel Modal â”€â”€â”€ 
-function openCPModal() {
-  console.log("asd");
-  document.getElementById("cpModal").classList.add("active");
-  checkCpStatus();
-}
-
-function closeCpModal() {
-    document.getElementById('cpModal').classList.remove('active');
-}
-
-function closeCPModal() {
-    closeCpModal();
-}
-
 async function checkCpStatus() {
     try {
         const status = await window.electronAPI.getCpStatus();
@@ -108,7 +93,3 @@ async function openLocalGroupPolicyEditor() {
         showToast("Failed to open Local Group Policy Editor", "error");
     }
 }
-
-$("cpModal")?.addEventListener("click", (e) => {
-  if (e.target.id === "cpModal") closeCPModal();
-});

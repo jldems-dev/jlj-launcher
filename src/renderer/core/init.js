@@ -8,6 +8,7 @@ document.addEventListener("DOMContentLoaded", () => {
   loadAppVersion();
   bindWindowControls();
   bindCrudControls();
+  bindDiscordTools();
   bindOwnerSettings();
   initSidebarClock();
   loadOwnerSettingsDisplay();

@@ -2,6 +2,7 @@ const fs = require("fs");
 const path = require("path");
 const initSqlJs = require("sql.js");
 const { OWNER_DEFAULTS, createDefaults } = require("./defaultData");
+const { hashPassword, isPasswordHash, verifyPassword } = require("../security/passwordVerifier");
 const { LEFT4DEAD2_MAPS } = require("./defaultMaps");
 
 const GAME_COLUMNS = [
@@ -461,13 +462,19 @@ function createGameStore(app, rootDir = process.cwd()) {
     return true;
   }
 
-  function verifyOwner(username, password) {
-    return data.owner.username === username && data.owner.password === password;
+  async function verifyOwner(username, password) {
+    const stored = data.owner.password;
+    return data.owner.username === username &&
+      (await verifyPassword(stored, password)) &&
+      data.owner.password === stored;
   }
 
-  function changePassword(currentPass, newPass) {
-    if (data.owner.password !== currentPass) return false;
-    data.owner.password = newPass;
+  async function changePassword(currentPass, newPass) {
+    const stored = data.owner.password;
+    if (!(await verifyPassword(stored, currentPass))) return false;
+    const replacement = isPasswordHash(stored) ? await hashPassword(newPass) : newPass;
+    if (data.owner.password !== stored) return false;
+    data.owner.password = replacement;
     save();
     return true;
   }

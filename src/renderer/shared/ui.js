@@ -36,6 +36,7 @@ function handleGlobalKeys(e) {
   if (e.key === "Escape") {
     $("searchInput")?.blur();
     closeLoginModal();
+    closeDiscordTools();
     closeOwnerSettings();
     closeAddGameModal();
     closeDeleteModal();

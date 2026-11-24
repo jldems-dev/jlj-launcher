@@ -18,7 +18,6 @@ const adminSocketService = require("./services/adminSocketService");
 const systemActivityService = require("./services/systemActivityService");
 const { autoUpdater } = require("electron-updater");
 const { createLoggingService } = require("./services/loggingService");
-const { createDiagnosticsService } = require("./services/diagnosticsService");
 const { createTrayService } = require("./services/trayService");
 
 
@@ -63,7 +62,6 @@ function bootstrap() {
     try { return await listener(event, ...args); }
     catch (error) { logger.log("ERROR", `ipc:${channel}`, "IPC request failed", error); throw error; }
   });
-  const diagnosticsService = createDiagnosticsService({ app, logger, store, getMainWindow: () => mainWindow, trackingService: { getRunningGameCount: () => trackingService?.getRunningGameCount?.() ?? 0 } });
   ipcMain.on("renderer-log", (_event, entry) => {
     const level = ["DEBUG", "INFO", "WARN", "ERROR", "FATAL"].includes(entry?.level) ? entry.level : "ERROR";
     logger.log(level, "renderer", String(entry?.message || "Renderer message"), entry?.details);
@@ -139,7 +137,6 @@ function bootstrap() {
     popupWindowService,
     adminSocketService,
     logger,
-    diagnosticsService,
     hideMainWindow: () => trayService.hideLauncher(),
   });
 
